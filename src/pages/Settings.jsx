@@ -6,20 +6,16 @@ import { useTenantCollection } from '../hooks/useTenantCollection'
 import ItemLookup from '../components/ItemLookup'
 import Branches from './Branches'
 import Users from './Users'
+import ThemeManagement from './ThemeManagement'
+import Sessions from './Sessions'
 
-const TABS = ['Theme & Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users']
+const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Active Sessions']
 
-function ThemeLanguage() {
+function LanguageSettings() {
   const [language, setLanguage] = useState('English')
   return (
     <div className="card">
-      <h3>Theme & Language</h3>
-      <div className="form-row" style={{ maxWidth: 300 }}>
-        <label>Theme</label>
-        <select className="input" defaultValue="Teal & Gold (default)">
-          <option>Teal & Gold (default)</option>
-        </select>
-      </div>
+      <h3>Language</h3>
       <div className="form-row" style={{ maxWidth: 300 }}>
         <label>Language</label>
         <select className="input" value={language} onChange={(e) => setLanguage(e.target.value)}>
@@ -67,9 +63,9 @@ function LowStockSettings() {
 
 export default function Settings() {
   const { isAdmin } = useAuth()
-  const [tab, setTab] = useState('Theme & Language')
+  const [tab, setTab] = useState('Theme Management')
 
-  const visibleTabs = TABS.filter((t) => t !== 'Users' || isAdmin)
+  const visibleTabs = TABS.filter((t) => (t !== 'Users' && t !== 'Active Sessions') || isAdmin)
 
   return (
     <div>
@@ -77,11 +73,13 @@ export default function Settings() {
       <div className="tabs">
         {visibleTabs.map((t) => <button key={t} className={`tab ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>)}
       </div>
-      {tab === 'Theme & Language' && <ThemeLanguage />}
+      {tab === 'Theme Management' && <ThemeManagement />}
+      {tab === 'Language' && <LanguageSettings />}
       {tab === 'Low Stock Settings' && <LowStockSettings />}
       {tab === 'Item Lookup' && <div className="card"><ItemLookup /></div>}
       {tab === 'Branches & Departments' && <Branches />}
       {tab === 'Users' && <Users />}
+      {tab === 'Active Sessions' && <Sessions />}
     </div>
   )
 }

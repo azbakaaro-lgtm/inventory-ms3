@@ -1,21 +1,26 @@
 import { useState } from 'react'
-import { addDoc, collection, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, doc, updateDoc, increment, serverTimestamp, runTransaction } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
 import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
 
+const emptyRows = () => [{ productId: '', qty: 1 }]
+
 export default function Sales() {
-  const { ownerId } = useAuth()
+  const { ownerId, isAdmin } = useAuth()
   const { items: sales, loading } = useTenantCollection('sales')
   const { items: products } = useTenantCollection('products')
   const { items: customers } = useTenantCollection('customers')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingSale, setEditingSale] = useState(null)
   const [customerId, setCustomerId] = useState('')
-  const [rows, setRows] = useState([{ productId: '', qty: 1 }])
+  const [rows, setRows] = useState(emptyRows())
   const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
   const productOptions = products.map((p) => ({ value: p.id, label: p.name, sublabel: p.code }))
   const customerOptions = [{ value: '', label: 'Walk-in Customer' }, ...customers.map((c) => ({ value: c.id, label: c.name }))]
@@ -26,12 +31,44 @@ export default function Sales() {
 
   function updateRow(i, patch) { setRows(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r))) }
   function addRow() { setRows([...rows, { productId: '', qty: 1 }]) }
-  function resetForm() { setCustomerId(''); setRows([{ productId: '', qty: 1 }]); setNotes('') }
+  function resetForm() { setCustomerId(''); setRows(emptyRows()); setNotes(''); setEditingSale(null); setError('') }
+
+  function openNewSale() {
+    resetForm()
+    setModalOpen(true)
+  }
+
+  function openEditSale(sale) {
+    setEditingSale(sale)
+    setCustomerId(sale.customerId || '')
+    setRows((sale.items || []).map((it) => ({ productId: it.productId, qty: it.qty })))
+    setNotes(sale.notes || '')
+    setError('')
+    setModalOpen(true)
+  }
 
   async function completeSale(e) {
     e.preventDefault()
     const validRows = rows.filter((r) => r.productId && Number(r.qty) > 0)
     if (validRows.length === 0) return
+    setBusy(true)
+    setError('')
+    try {
+      if (editingSale) {
+        await editSaleTransaction(editingSale, validRows)
+      } else {
+        await createSale(validRows)
+      }
+      setModalOpen(false)
+      resetForm()
+    } catch (err) {
+      setError('Could not save this sale. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function createSale(validRows) {
     const customer = customers.find((c) => c.id === customerId)
     const totalQty = validRows.reduce((s, r) => s + Number(r.qty), 0)
     const reference = `SALE-${Date.now().toString().slice(-6)}`
@@ -57,15 +94,113 @@ export default function Sales() {
     if (customer) {
       await updateDoc(doc(db, 'customers', customer.id), { totalPurchases: increment(totalQty) })
     }
-    setModalOpen(false)
-    resetForm()
+  }
+
+  async function editSaleTransaction(sale, validRows) {
+    const newItems = validRows.map((r) => {
+      const p = products.find((pp) => pp.id === r.productId)
+      return { productId: r.productId, name: p?.name, qty: Number(r.qty) }
+    })
+    const newTotalQty = newItems.reduce((s, r) => s + r.qty, 0)
+    const newCustomer = customers.find((c) => c.id === customerId)
+
+    const oldItems = sale.items || []
+    const productIds = new Set([...oldItems.map((i) => i.productId), ...newItems.map((i) => i.productId)])
+    const customerIds = new Set([sale.customerId, customerId].filter(Boolean))
+
+    await runTransaction(db, async (tx) => {
+      const saleRef = doc(db, 'sales', sale.id)
+
+      const productRefs = {}
+      const productSnaps = {}
+      for (const pid of productIds) {
+        const ref = doc(db, 'products', pid)
+        productRefs[pid] = ref
+        productSnaps[pid] = await tx.get(ref)
+      }
+      const customerRefs = {}
+      const customerSnaps = {}
+      for (const cid of customerIds) {
+        const ref = doc(db, 'customers', cid)
+        customerRefs[cid] = ref
+        customerSnaps[cid] = await tx.get(ref)
+      }
+
+      const oldQtyByProduct = {}
+      oldItems.forEach((i) => { oldQtyByProduct[i.productId] = (oldQtyByProduct[i.productId] || 0) + i.qty })
+      const newQtyByProduct = {}
+      newItems.forEach((i) => { newQtyByProduct[i.productId] = (newQtyByProduct[i.productId] || 0) + i.qty })
+
+      for (const pid of productIds) {
+        const snap = productSnaps[pid]
+        if (!snap.exists()) continue
+        const delta = (oldQtyByProduct[pid] || 0) - (newQtyByProduct[pid] || 0)
+        if (delta !== 0) tx.update(productRefs[pid], { quantity: increment(delta) })
+      }
+
+      const oldCustomerId = sale.customerId || null
+      if (oldCustomerId && oldCustomerId === customerId) {
+        const deltaQty = newTotalQty - (sale.quantity || 0)
+        if (deltaQty !== 0 && customerSnaps[oldCustomerId]?.exists()) {
+          tx.update(customerRefs[oldCustomerId], { totalPurchases: increment(deltaQty) })
+        }
+      } else {
+        if (oldCustomerId && customerSnaps[oldCustomerId]?.exists()) {
+          tx.update(customerRefs[oldCustomerId], { totalPurchases: increment(-(sale.quantity || 0)) })
+        }
+        if (customerId && customerSnaps[customerId]?.exists()) {
+          tx.update(customerRefs[customerId], { totalPurchases: increment(newTotalQty) })
+        }
+      }
+
+      tx.update(saleRef, {
+        customerId: customerId || null,
+        customerName: newCustomer?.name || 'Walk-in Customer',
+        quantity: newTotalQty,
+        items: newItems,
+        notes,
+      })
+    })
+  }
+
+  async function removeSale(sale) {
+    if (!confirm(`Delete sale ${sale.reference}? Stock quantities will be restored.`)) return
+    const items = sale.items || []
+    const productIds = [...new Set(items.map((i) => i.productId))]
+
+    await runTransaction(db, async (tx) => {
+      const saleRef = doc(db, 'sales', sale.id)
+      const productRefs = {}
+      const productSnaps = {}
+      for (const pid of productIds) {
+        const ref = doc(db, 'products', pid)
+        productRefs[pid] = ref
+        productSnaps[pid] = await tx.get(ref)
+      }
+      let customerRef = null
+      let customerSnap = null
+      if (sale.customerId) {
+        customerRef = doc(db, 'customers', sale.customerId)
+        customerSnap = await tx.get(customerRef)
+      }
+
+      const qtyByProduct = {}
+      items.forEach((i) => { qtyByProduct[i.productId] = (qtyByProduct[i.productId] || 0) + i.qty })
+      for (const pid of productIds) {
+        if (productSnaps[pid]?.exists()) tx.update(productRefs[pid], { quantity: increment(qtyByProduct[pid] || 0) })
+      }
+      if (customerRef && customerSnap?.exists()) {
+        tx.update(customerRef, { totalPurchases: increment(-(sale.quantity || 0)) })
+      }
+      tx.delete(saleRef)
+    })
   }
 
   return (
     <div>
       <div className="page-header">
         <h1>Sales</h1>
-        <button className="btn btn-gold" onClick={() => setModalOpen(true)}>+ New Sale</button>
+        <button className="btn btn-gold" onClick={openNewSale}>+ New Sale</button>
       </div>
 
       <div className="toolbar">
@@ -74,21 +209,27 @@ export default function Sales() {
 
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Reference</th><th>Customer</th><th>Quantity</th><th>Status</th></tr></thead>
+          <thead><tr><th>Date</th><th>Reference</th><th>Customer</th><th>Quantity</th><th>Status</th>{isAdmin && <th>Actions</th>}</tr></thead>
           <tbody>
-            {!loading && filtered.length === 0 && <tr><td colSpan={5}><div className="empty-state">No data available</div></td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={isAdmin ? 6 : 5}><div className="empty-state">No data available</div></td></tr>}
             {filtered.map((s) => (
               <tr key={s.id}>
                 <td>{s.date?.toDate ? s.date.toDate().toLocaleDateString() : '—'}</td>
                 <td>{s.reference}</td><td>{s.customerName}</td><td>{s.quantity}</td>
                 <td><span className="pill pill-in">{s.status}</span></td>
+                {isAdmin && (
+                  <td>
+                    <button className="btn btn-ghost btn-sm" onClick={() => openEditSale(s)}>✏️</button>{' '}
+                    <button className="btn btn-danger btn-sm" onClick={() => removeSale(s)}>🗑️</button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <Modal open={modalOpen} title="New Sale" onClose={() => setModalOpen(false)} wide>
+      <Modal open={modalOpen} title={editingSale ? `Edit Sale — ${editingSale.reference}` : 'New Sale'} onClose={() => setModalOpen(false)} wide>
         <form onSubmit={completeSale}>
           <div className="form-row"><label>Customer Name (Optional)</label>
             <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
@@ -107,9 +248,11 @@ export default function Sales() {
           <div className="form-row" style={{ marginTop: 14 }}><label>Notes</label>
             <textarea className="input" value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
 
+          {error && <div className="login-error">{error}</div>}
+
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>
-            <button className="btn btn-primary">Complete Sale</button>
+            <button className="btn btn-primary" disabled={busy}>{busy ? 'Saving…' : editingSale ? 'Save Changes' : 'Complete Sale'}</button>
           </div>
         </form>
       </Modal>

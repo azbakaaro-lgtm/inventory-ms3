@@ -38,6 +38,8 @@ body {
   position: sticky;
   top: 0;
   height: 100vh;
+  transition: width 0.22s ease;
+  overflow: hidden;
 }
 .sidebar-brand {
   font-size: 1.2rem;
@@ -45,8 +47,13 @@ body {
   padding: 20px 18px;
   color: var(--gold-400);
   letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
 }
-.sidebar-nav { flex: 1; padding: 6px 10px; overflow-y: auto; }
+.sidebar-brand-mark { display: none; }
+.sidebar-nav { flex: 1; padding: 6px 10px; overflow-y: auto; overflow-x: hidden; }
 .sidebar-link {
   display: flex;
   align-items: center;
@@ -57,20 +64,37 @@ body {
   text-decoration: none;
   margin-bottom: 2px;
   font-size: 0.93rem;
+  white-space: nowrap;
+  transition: background 0.15s ease;
 }
 .sidebar-link:hover { background: rgba(255,255,255,0.08); }
 .sidebar-link.active { background: var(--teal-600); color: #fff; font-weight: 600; }
-.sidebar-icon { width: 20px; text-align: center; }
+.sidebar-icon { width: 20px; text-align: center; flex-shrink: 0; }
+.sidebar-label-text { transition: opacity 0.15s ease; }
 .sidebar-footer { padding: 14px; border-top: 1px solid rgba(255,255,255,0.1); }
 .sidebar-user { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .avatar {
   width: 34px; height: 34px; border-radius: 50%;
   background: var(--gold-500); color: var(--teal-900);
   display: flex; align-items: center; justify-content: center; font-weight: 700;
+  flex-shrink: 0;
 }
+.sidebar-user-info { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-user-name { font-size: 0.85rem; font-weight: 600; }
 .sidebar-user-role { font-size: 0.72rem; color: #a9d8d2; text-transform: capitalize; }
-.logout-btn { width: 100%; }
+.logout-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.logout-icon { display: none; }
+
+/* Collapsed desktop/tablet sidebar: icons only, smooth width animation. */
+@media (min-width: 901px) {
+  .sidebar-collapsed { width: 68px; }
+  .sidebar-collapsed .sidebar-label-text { display: none; }
+  .sidebar-collapsed .sidebar-brand { justify-content: center; padding: 20px 0; }
+  .sidebar-collapsed .sidebar-brand-mark { display: inline; }
+  .sidebar-collapsed .sidebar-link { justify-content: center; padding: 10px 0; }
+  .sidebar-collapsed .sidebar-user { justify-content: center; }
+  .sidebar-collapsed .logout-icon { display: inline; }
+}
 
 .app-main { flex: 1; min-width: 0; }
 .topbar {

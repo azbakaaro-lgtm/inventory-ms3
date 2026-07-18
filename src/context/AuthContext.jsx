@@ -1,7 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth'
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from 'firebase/auth'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from '../firebase'
+import { useSessionTracker } from '../hooks/useSessionTracker'
+
+// Ensures the signed-in session survives page refreshes and app restarts
+// on this device (this is the default for web, but set explicitly so
+// behavior doesn't silently change across Firebase SDK versions).
+setPersistence(auth, browserLocalPersistence).catch(() => {})
 
 const AuthContext = createContext(null)
 
@@ -38,8 +44,13 @@ export function AuthProvider({ children }) {
     return unsub
   }, [])
 
+  const { endSession } = useSessionTracker({ firebaseUser, profile })
+
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password)
-  const logout = () => signOut(auth)
+  const logout = async () => {
+    await endSession()
+    await signOut(auth)
+  }
 
   // The tenant/data scope this user's records belong to.
   const ownerId = profile?.ownerId

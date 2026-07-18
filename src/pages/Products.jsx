@@ -1,9 +1,11 @@
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
-import { useMemo, useState } from 'react'
-import Modal from '../components/Modal'
-import { useAuth } from '../context/AuthContext'
+import { useState, useMemo } from 'react'
+import { addDoc, collection, deleteDoc, doc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
+import Modal from '../components/Modal'
+import ImportProductsModal from '../components/ImportProductsModal'
+import { exportProductsPdf } from '../utils/productPdf'
 
 const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, description: '' }
 
@@ -13,8 +15,11 @@ export default function Products() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  const [selected, setSelected] = useState(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category).filter(Boolean))], [products])
 
@@ -50,11 +55,51 @@ export default function Products() {
     if (confirm(`Delete ${p.name}?`)) await deleteDoc(doc(db, 'products', p.id))
   }
 
+  function toggleOne(id) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAllFiltered() {
+    setSelected((prev) => {
+      const allSelected = filtered.length > 0 && filtered.every((p) => prev.has(p.id))
+      if (allSelected) return new Set()
+      return new Set(filtered.map((p) => p.id))
+    })
+  }
+
+  async function bulkDeleteSelected() {
+    if (selected.size === 0) return
+    if (!confirm(`Delete ${selected.size} selected product(s)? This cannot be undone.`)) return
+    setBulkDeleting(true)
+    try {
+      const ids = [...selected]
+      const CHUNK = 400
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const batch = writeBatch(db)
+        ids.slice(i, i + CHUNK).forEach((id) => batch.delete(doc(db, 'products', id)))
+        await batch.commit()
+      }
+      setSelected(new Set())
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
+  const allFilteredSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id))
+
   return (
     <div>
       <div className="page-header">
         <h1>Products</h1>
-        <button className="btn btn-gold" onClick={openAdd}>+ Add Product</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => exportProductsPdf(products)}>⬇ Export PDF</button>
+          <button className="btn btn-ghost" onClick={() => setImportOpen(true)}>⬆ Import Products</button>
+          <button className="btn btn-gold" onClick={openAdd}>+ Add Product</button>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -62,19 +107,28 @@ export default function Products() {
         <select className="input" style={{ maxWidth: 200 }} value={category} onChange={(e) => setCategory(e.target.value)}>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        {selected.size > 0 && (
+          <button className="btn btn-danger" onClick={bulkDeleteSelected} disabled={bulkDeleting}>
+            {bulkDeleting ? 'Deleting…' : `🗑️ Delete Selected (${selected.size})`}
+          </button>
+        )}
       </div>
 
       <div className="table-wrap">
         <table>
           <thead>
-            <tr><th>Code</th><th>Name</th><th>Category</th><th>Unit</th><th>Qty</th><th>Actions</th></tr>
+            <tr>
+              <th style={{ width: 32 }}><input type="checkbox" checked={allFilteredSelected} onChange={toggleAllFiltered} /></th>
+              <th>Code</th><th>Name</th><th>Category</th><th>Unit</th><th>Qty</th><th>Actions</th>
+            </tr>
           </thead>
           <tbody>
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={6}><div className="empty-state">No products yet.</div></td></tr>
+              <tr><td colSpan={7}><div className="empty-state">No products yet.</div></td></tr>
             )}
             {filtered.map((p) => (
               <tr key={p.id}>
+                <td><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} /></td>
                 <td>{p.code}</td>
                 <td>{p.name}</td>
                 <td>{p.category || '—'}</td>
@@ -118,6 +172,13 @@ export default function Products() {
           </div>
         </form>
       </Modal>
+
+      <ImportProductsModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        ownerId={ownerId}
+        existingProducts={products}
+      />
     </div>
   )
 }

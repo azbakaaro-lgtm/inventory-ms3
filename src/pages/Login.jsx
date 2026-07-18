@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
-import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
@@ -19,22 +17,8 @@ export default function Login() {
     setBusy(true)
     try {
       await login(email, password)
-    } catch (signInErr) {
-      // No account with this email/password yet — this is how the very first
-      // admin (and, later, anyone typing a brand-new email) gets created.
-      try {
-        await createUserWithEmailAndPassword(auth, email, password)
-      } catch (createErr) {
-        if (createErr.code === 'auth/email-already-in-use') {
-          setError('That email exists already — the password you typed is incorrect.')
-        } else if (createErr.code === 'auth/weak-password') {
-          setError('Password must be at least 6 characters.')
-        } else if (createErr.code === 'auth/invalid-email') {
-          setError('Please enter a valid email address.')
-        } else {
-          setError('Could not sign in. Please try again.')
-        }
-      }
+    } catch (err) {
+      setError('Incorrect email or password.')
     } finally {
       setBusy(false)
     }

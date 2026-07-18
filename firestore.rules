@@ -37,33 +37,64 @@ service cloud.firestore {
     }
 
     // --- tenant-scoped store data ---
+    // "resource == null ||" guards reads that check a document which may not
+    // exist yet (e.g. a product referenced by a sale that was later deleted) —
+    // without it, Firestore denies the read outright instead of just finding nothing.
     match /products/{id} {
-      allow read, update, delete: if ownedByMe(resource.data);
+      allow read: if resource == null || ownedByMe(resource.data);
+      allow update, delete: if ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
     }
     match /stockIn/{id} {
-      allow read, update, delete: if ownedByMe(resource.data);
+      allow read: if resource == null || ownedByMe(resource.data);
+      allow update, delete: if ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
     }
     match /stockOut/{id} {
-      allow read, update, delete: if ownedByMe(resource.data);
+      allow read: if resource == null || ownedByMe(resource.data);
+      allow update, delete: if ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
     }
     match /sales/{id} {
-      allow read, update, delete: if ownedByMe(resource.data);
+      allow read: if resource == null || ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
+      // Only an admin of the same store can edit or delete a sale.
+      allow update, delete: if isAdmin() && ownedByMe(resource.data);
     }
     match /customers/{id} {
-      allow read, update, delete: if ownedByMe(resource.data);
+      allow read: if resource == null || ownedByMe(resource.data);
+      allow update, delete: if ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
     }
     match /branches/{id} {
-      allow read, update, delete: if ownedByMe(resource.data);
+      allow read: if resource == null || ownedByMe(resource.data);
+      allow update, delete: if ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
     }
     match /departments/{id} {
-      allow read, update, delete: if ownedByMe(resource.data);
+      allow read: if resource == null || ownedByMe(resource.data);
+      allow update, delete: if ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
+    }
+
+    // --- theme management (one doc per store, keyed by ownerId) ---
+    match /themeSettings/{ownerIdKey} {
+      allow read: if isSignedIn() && myOwnerId() == ownerIdKey;
+      allow create, update: if isActive() && myOwnerId() == ownerIdKey;
+      allow delete: if false;
+    }
+
+    // --- active sessions (one doc per signed-in device/tab) ---
+    match /sessions/{sessionId} {
+      // A user can read/write their own session (heartbeat, and to notice a
+      // forced logout). An admin can read/manage every session for their store.
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.uid || (isAdmin() && ownedByMe(resource.data)));
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid && request.resource.data.ownerId == myOwnerId();
+      allow update: if isSignedIn() && (
+        (request.auth.uid == resource.data.uid && request.resource.data.uid == resource.data.uid) ||
+        (isAdmin() && ownedByMe(resource.data))
+      );
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.uid || (isAdmin() && ownedByMe(resource.data)));
     }
   }
 }

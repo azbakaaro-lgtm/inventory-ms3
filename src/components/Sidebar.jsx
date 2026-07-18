@@ -13,36 +13,43 @@ const links = [
   { to: '/settings', label: 'Settings', icon: '⚙️' },
 ]
 
-export default function Sidebar({ open, onClose }) {
+export default function Sidebar({ open, collapsed, onClose }) {
   const { profile, logout } = useAuth()
 
   return (
     <>
-      <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}>
-        <div className="sidebar-brand">Inventory MS</div>
+      <aside className={`sidebar ${open ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-mark">IM</span>
+          <span className="sidebar-label-text sidebar-brand-text">Inventory MS</span>
+        </div>
         <nav className="sidebar-nav">
           {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
               end={l.end}
+              title={l.label}
               className={({ isActive }) => 'sidebar-link' + (isActive ? ' active' : '')}
               onClick={onClose}
             >
               <span className="sidebar-icon">{l.icon}</span>
-              {l.label}
+              <span className="sidebar-label-text">{l.label}</span>
             </NavLink>
           ))}
         </nav>
         <div className="sidebar-footer">
-          <div className="sidebar-user">
+          <div className="sidebar-user" title={profile?.name}>
             <div className="avatar">{(profile?.name || '?')[0]?.toUpperCase()}</div>
-            <div>
+            <div className="sidebar-label-text sidebar-user-info">
               <div className="sidebar-user-name">{profile?.name}</div>
               <div className="sidebar-user-role">{profile?.role}</div>
             </div>
           </div>
-          <button className="btn btn-ghost logout-btn" onClick={logout}>Logout</button>
+          <button className="btn btn-ghost logout-btn" onClick={logout} title="Logout">
+            <span className="sidebar-label-text">Logout</span>
+            <span className="logout-icon">⏻</span>
+          </button>
         </div>
       </aside>
       {open && <div className="sidebar-backdrop" onClick={onClose} />}
