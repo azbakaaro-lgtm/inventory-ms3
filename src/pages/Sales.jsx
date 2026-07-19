@@ -9,12 +9,13 @@ import SearchSelect from '../components/SearchSelect'
 const emptyRows = () => [{ productId: '', qty: 1 }]
 
 export default function Sales() {
-  const { ownerId, isAdmin } = useAuth()
+  const { ownerId } = useAuth()
   const { items: sales, loading } = useTenantCollection('sales')
   const { items: products } = useTenantCollection('products')
   const { items: customers } = useTenantCollection('customers')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [viewingSale, setViewingSale] = useState(null)
   const [editingSale, setEditingSale] = useState(null)
   const [customerId, setCustomerId] = useState('')
   const [rows, setRows] = useState(emptyRows())
@@ -209,25 +210,49 @@ export default function Sales() {
 
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Reference</th><th>Customer</th><th>Quantity</th><th>Status</th>{isAdmin && <th>Actions</th>}</tr></thead>
+          <thead><tr><th>Date</th><th>Reference</th><th>Customer</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {!loading && filtered.length === 0 && <tr><td colSpan={isAdmin ? 6 : 5}><div className="empty-state">No data available</div></td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={6}><div className="empty-state">No data available</div></td></tr>}
             {filtered.map((s) => (
               <tr key={s.id}>
                 <td>{s.date?.toDate ? s.date.toDate().toLocaleDateString() : '—'}</td>
                 <td>{s.reference}</td><td>{s.customerName}</td><td>{s.quantity}</td>
                 <td><span className="pill pill-in">{s.status}</span></td>
-                {isAdmin && (
-                  <td>
-                    <button className="btn btn-ghost btn-sm" onClick={() => openEditSale(s)}>✏️</button>{' '}
-                    <button className="btn btn-danger btn-sm" onClick={() => removeSale(s)}>🗑️</button>
-                  </td>
-                )}
+                <td>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setViewingSale(s)}>👁️ View</button>{' '}
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEditSale(s)}>✏️</button>{' '}
+                  <button className="btn btn-danger btn-sm" onClick={() => removeSale(s)}>🗑️</button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <Modal open={!!viewingSale} title={viewingSale ? `Sale — ${viewingSale.reference}` : ''} onClose={() => setViewingSale(null)}>
+        {viewingSale && (
+          <div>
+            <div className="form-grid" style={{ marginBottom: 12 }}>
+              <div><strong>Customer:</strong> {viewingSale.customerName}</div>
+              <div><strong>Date:</strong> {viewingSale.date?.toDate ? viewingSale.date.toDate().toLocaleString() : '—'}</div>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>Product</th><th>Qty</th></tr></thead>
+                <tbody>
+                  {(viewingSale.items || []).map((it, i) => (
+                    <tr key={i}><td>{it.name || products.find((p) => p.id === it.productId)?.name || '—'}</td><td>{it.qty}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {viewingSale.notes && <p style={{ marginTop: 10 }}><strong>Notes:</strong> {viewingSale.notes}</p>}
+            <div className="modal-footer">
+              <button type="button" className="btn btn-primary" onClick={() => setViewingSale(null)}>Close</button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={modalOpen} title={editingSale ? `Edit Sale — ${editingSale.reference}` : 'New Sale'} onClose={() => setModalOpen(false)} wide>
         <form onSubmit={completeSale}>

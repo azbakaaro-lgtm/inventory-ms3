@@ -58,8 +58,8 @@ service cloud.firestore {
     match /sales/{id} {
       allow read: if resource == null || ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
-      // Only an admin of the same store can edit or delete a sale.
-      allow update, delete: if isAdmin() && ownedByMe(resource.data);
+      // Any active user of the store can edit or delete a sale.
+      allow update, delete: if ownedByMe(resource.data);
     }
     match /customers/{id} {
       allow read: if resource == null || ownedByMe(resource.data);
