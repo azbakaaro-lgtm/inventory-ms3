@@ -7,27 +7,35 @@ export default function Dashboard() {
   const { items: products } = useTenantCollection('products')
   const { items: stockIn } = useTenantCollection('stockIn')
   const { items: stockOut } = useTenantCollection('stockOut')
+  const { items: sales } = useTenantCollection('sales')
 
   const totalStockAvailable = products.reduce((s, p) => s + Number(p.quantity || 0), 0)
   const totalStockAdded = stockIn.reduce((s, e) => s + Number(e.quantity || 0), 0)
   const totalStockIssued = stockOut.reduce((s, e) => s + Number(e.quantity || 0), 0)
   const lowStock = products.filter((p) => Number(p.quantity) <= Number(p.minQuantity ?? 5))
 
-  const { fast, medium, slow } = useMemo(() => classifyMovement(products, stockOut), [products, stockOut])
+  const { fast, medium, slow } = useMemo(() => classifyMovement(products, stockOut, sales), [products, stockOut, sales])
 
   const recentIn = [...stockIn].sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).slice(0, 5)
   const recentOut = [...stockOut].sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0)).slice(0, 5)
 
+  // "Top Products" reflects everything that actually leaves the shelf —
+  // both internal Stock Out transfers and customer Sales.
   const topProducts = useMemo(() => {
     const moved = {}
     stockOut.forEach((e) => { moved[e.productId] = (moved[e.productId] || 0) + Number(e.quantity || 0) })
+    sales.forEach((s) => {
+      ;(s.items || []).forEach((it) => {
+        moved[it.productId] = (moved[it.productId] || 0) + Number(it.qty || 0)
+      })
+    })
     const max = Math.max(1, ...Object.values(moved))
     return products
       .map((p) => ({ ...p, moved: moved[p.id] || 0 }))
       .sort((a, b) => b.moved - a.moved)
       .slice(0, 5)
       .map((p) => ({ ...p, pct: Math.round((p.moved / max) * 100) }))
-  }, [products, stockOut])
+  }, [products, stockOut, sales])
 
   return (
     <div>
@@ -41,9 +49,15 @@ export default function Dashboard() {
       </div>
 
       <div className="cards-grid">
-        <div className="card"><div className="card-label">Fast Moving Items</div><div className="card-value">{fast.length}</div></div>
-        <div className="card"><div className="card-label">Medium Moving Items</div><div className="card-value">{medium.length}</div></div>
-        <div className="card"><div className="card-label">Slow Moving Items</div><div className="card-value">{slow.length}</div></div>
+        <Link to="/analytics" state={{ tab: 'Fast Moving' }} className="card" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+          <div className="card-label">Fast Moving Items</div><div className="card-value">{fast.length}</div>
+        </Link>
+        <Link to="/analytics" state={{ tab: 'Medium Moving' }} className="card" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+          <div className="card-label">Medium Moving Items</div><div className="card-value">{medium.length}</div>
+        </Link>
+        <Link to="/analytics" state={{ tab: 'Slow Moving' }} className="card" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+          <div className="card-label">Slow Moving Items</div><div className="card-value">{slow.length}</div>
+        </Link>
       </div>
 
       {lowStock.length > 0 && (
@@ -72,7 +86,11 @@ export default function Dashboard() {
       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
-        <h3>Top Products</h3>
+        <div className="page-header" style={{ marginBottom: 8 }}>
+          <h3 style={{ margin: 0 }}>Top Products</h3>
+          <Link to="/analytics" className="btn btn-ghost btn-sm">View Full Analytics</Link>
+        </div>
+        {topProducts.length === 0 && <div className="empty-state">No sales or stock-out activity yet.</div>}
         {topProducts.map((p) => (
           <div key={p.id}>
             <div className="progress-row" style={{ justifyContent: 'space-between' }}>

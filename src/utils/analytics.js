@@ -1,11 +1,19 @@
 // Classifies products into Fast / Medium / Slow moving tiers based on
-// actual quantity issued (stockOut) within the given period.
+// actual quantity sold/issued within the given period — combining both
+// Stock Out entries (transfers to branches/departments) and Sales (items
+// sold to customers), since both represent inventory leaving the store.
 // Uses simple tercile ranking: top third = fast, middle third = medium, bottom third = slow.
-export function classifyMovement(products, stockOutEntries, sinceDate = null) {
+export function classifyMovement(products, stockOutEntries, salesEntries = [], sinceDate = null) {
   const moved = {}
   stockOutEntries.forEach((e) => {
     if (sinceDate && e.date?.toDate && e.date.toDate() < sinceDate) return
     moved[e.productId] = (moved[e.productId] || 0) + Number(e.quantity || 0)
+  })
+  salesEntries.forEach((s) => {
+    if (sinceDate && s.date?.toDate && s.date.toDate() < sinceDate) return
+    ;(s.items || []).forEach((it) => {
+      moved[it.productId] = (moved[it.productId] || 0) + Number(it.qty || 0)
+    })
   })
 
   const withMovement = products.map((p) => ({ ...p, moved: moved[p.id] || 0 }))

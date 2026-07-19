@@ -5,18 +5,19 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 
-const TABS = ['Daily Report', 'Weekly Report', 'Monthly Report', 'Stock In Report', 'Stock Out Report', 'Fast Moving Report', 'Slow Moving Report', 'Low Stock Report']
+const TABS = ['Daily Report', 'Weekly Report', 'Monthly Report', 'Stock In Report', 'Stock Out Report', 'Sales Report', 'Fast Moving Report', 'Slow Moving Report', 'Low Stock Report']
 
 export default function Reports() {
   const { items: products } = useTenantCollection('products')
   const { items: stockIn } = useTenantCollection('stockIn')
   const { items: stockOut } = useTenantCollection('stockOut')
+  const { items: sales } = useTenantCollection('sales')
   const [tab, setTab] = useState('Daily Report')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
   const [generated, setGenerated] = useState(false)
 
-  const { fast, slow } = useMemo(() => classifyMovement(products, stockOut), [products, stockOut])
+  const { fast, slow } = useMemo(() => classifyMovement(products, stockOut, sales), [products, stockOut, sales])
   const lowStock = products.filter((p) => Number(p.quantity) <= Number(p.minQuantity ?? 5))
 
   function inRange(dateVal) {
@@ -30,15 +31,23 @@ export default function Reports() {
   const combined = useMemo(() => {
     const inRows = stockIn.filter((e) => inRange(e.date)).map((e) => ({ ...e, type: 'Stock In', signedQty: e.quantity }))
     const outRows = stockOut.filter((e) => inRange(e.date)).map((e) => ({ ...e, type: 'Stock Out', signedQty: -e.quantity }))
+    // Each sale can cover several products — expand to one ledger row per item, matching Stock In/Out granularity.
+    const saleRows = sales.filter((s) => inRange(s.date)).flatMap((s) =>
+      (s.items || []).map((it) => {
+        const p = products.find((pp) => pp.id === it.productId)
+        return { date: s.date, productCode: p?.code || '—', productName: it.name || p?.name || '—', type: 'Sale', signedQty: -Number(it.qty || 0) }
+      })
+    )
     let rows
     if (tab === 'Stock In Report') rows = inRows
     else if (tab === 'Stock Out Report') rows = outRows
+    else if (tab === 'Sales Report') rows = saleRows
     else if (tab === 'Fast Moving Report') rows = fast.map((p) => ({ date: null, productCode: p.code, productName: p.name, signedQty: p.moved, type: 'Fast Moving' }))
     else if (tab === 'Slow Moving Report') rows = slow.map((p) => ({ date: null, productCode: p.code, productName: p.name, signedQty: p.moved, type: 'Slow Moving' }))
     else if (tab === 'Low Stock Report') rows = lowStock.map((p) => ({ date: null, productCode: p.code, productName: p.name, signedQty: p.quantity, type: 'Low Stock' }))
-    else rows = [...inRows, ...outRows] // Daily/Weekly/Monthly all show the raw ledger for the chosen range
+    else rows = [...inRows, ...outRows, ...saleRows] // Daily/Weekly/Monthly all show the raw ledger for the chosen range
     return rows.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
-  }, [tab, stockIn, stockOut, fast, slow, lowStock, fromDate, toDate])
+  }, [tab, stockIn, stockOut, sales, products, fast, slow, lowStock, fromDate, toDate])
 
   function exportPdf() {
     const pdf = new jsPDF()
@@ -96,7 +105,7 @@ export default function Reports() {
                 <td>{r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—'}</td>
                 <td>{r.productCode}</td><td>{r.productName}</td>
                 <td className={r.signedQty < 0 ? 'qty-low' : 'qty-ok'}>{r.signedQty > 0 ? `+${r.signedQty}` : r.signedQty}</td>
-                <td><span className={`pill ${r.type === 'Stock Out' ? 'pill-out' : 'pill-in'}`}>{r.type}</span></td>
+                <td><span className={`pill ${r.type === 'Stock Out' || r.type === 'Sale' ? 'pill-out' : 'pill-in'}`}>{r.type}</span></td>
               </tr>
             ))}
           </tbody>

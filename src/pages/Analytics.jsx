@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend } from 'recharts'
 import { useTenantCollection } from '../hooks/useTenantCollection'
 import { classifyMovement, lastNDays } from '../utils/analytics'
@@ -11,11 +12,13 @@ export default function Analytics() {
   const { items: products } = useTenantCollection('products')
   const { items: stockOut } = useTenantCollection('stockOut')
   const { items: stockIn } = useTenantCollection('stockIn')
-  const [tab, setTab] = useState('Fast Moving')
+  const { items: sales } = useTenantCollection('sales')
+  const location = useLocation()
+  const [tab, setTab] = useState(TABS.includes(location.state?.tab) ? location.state.tab : 'Fast Moving')
   const reportRef = useRef(null)
 
   const since = lastNDays(30)
-  const { fast, medium, slow } = useMemo(() => classifyMovement(products, stockOut, since), [products, stockOut])
+  const { fast, medium, slow } = useMemo(() => classifyMovement(products, stockOut, sales, since), [products, stockOut, sales])
   const lowStock = products.filter((p) => Number(p.quantity) <= Number(p.minQuantity ?? 5))
 
   const tabData = { 'Fast Moving': fast, 'Medium Moving': medium, 'Slow Moving': slow, 'Low Stock': lowStock }[tab]
@@ -32,7 +35,7 @@ export default function Analytics() {
     for (let i = 29; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i)
       const key = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-      days[key] = { day: key, stockIn: 0, stockOut: 0 }
+      days[key] = { day: key, stockIn: 0, stockOut: 0, sales: 0 }
     }
     stockIn.forEach((e) => {
       if (!e.date?.toDate) return
@@ -44,8 +47,13 @@ export default function Analytics() {
       const key = e.date.toDate().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
       if (days[key]) days[key].stockOut += Number(e.quantity || 0)
     })
+    sales.forEach((s) => {
+      if (!s.date?.toDate) return
+      const key = s.date.toDate().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+      if (days[key]) days[key].sales += Number(s.quantity || 0)
+    })
     return Object.values(days)
-  }, [stockIn, stockOut])
+  }, [stockIn, stockOut, sales])
 
   const summary = useMemo(() => {
     const topName = fast[0]?.name
@@ -55,7 +63,7 @@ export default function Analytics() {
       ? `${topName} is currently the fastest-moving product over the last 30 days.`
       : `No strong fast-moving product stands out yet — activity is fairly even across items.`)
     lines.push(`${fast.length} item(s) are fast moving, ${medium.length} medium, and ${slow.length} slow.`)
-    if (atRisk > 0) lines.push(`${atRisk} item(s) have had no stock-out activity at all and may be at risk of overstock.`)
+    if (atRisk > 0) lines.push(`${atRisk} item(s) have had no sales or stock-out activity at all and may be at risk of overstock.`)
     if (lowStock.length > 0) lines.push(`${lowStock.length} item(s) are currently below their minimum stock threshold and need reordering.`)
     return lines.join(' ')
   }, [fast, medium, slow, lowStock])
@@ -100,13 +108,14 @@ export default function Analytics() {
             </ResponsiveContainer>
           </div>
           <div className="card">
-            <h3>Stock In vs Stock Out (30 days)</h3>
+            <h3>Stock In vs Stock Out vs Sales (30 days)</h3>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={dailyTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" interval={4} /><YAxis allowDecimals={false} /><Tooltip /><Legend />
                 <Line type="monotone" dataKey="stockIn" stroke="#1fa895" name="Stock In" strokeWidth={2} dot={false} />
                 <Line type="monotone" dataKey="stockOut" stroke="#e6b94d" name="Stock Out" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="sales" stroke="#c0642a" name="Sales" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
