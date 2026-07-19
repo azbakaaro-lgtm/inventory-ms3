@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
 import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
+import SalesPdfImportModal from '../components/SalesPdfImportModal'
 
 const emptyRows = () => [{ productId: '', qty: 1 }]
 const todayStr = () => new Date().toISOString().slice(0, 10)
@@ -24,6 +25,7 @@ export default function Sales() {
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [viewingSale, setViewingSale] = useState(null)
+  const [pdfImportOpen, setPdfImportOpen] = useState(false)
   const [editingSale, setEditingSale] = useState(null)
   const [customerId, setCustomerId] = useState('')
   const [rows, setRows] = useState(emptyRows())
@@ -212,7 +214,10 @@ export default function Sales() {
     <div>
       <div className="page-header">
         <h1>Sales</h1>
-        <button className="btn btn-gold" onClick={openNewSale}>+ New Sale</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => setPdfImportOpen(true)}>⬆ Import Sales (PDF)</button>
+          <button className="btn btn-gold" onClick={openNewSale}>+ New Sale</button>
+        </div>
       </div>
 
       <div className="toolbar">
@@ -296,6 +301,13 @@ export default function Sales() {
           </div>
         </form>
       </Modal>
+
+      <SalesPdfImportModal
+        open={pdfImportOpen}
+        onClose={() => setPdfImportOpen(false)}
+        ownerId={ownerId}
+        products={products}
+      />
     </div>
   )
 }

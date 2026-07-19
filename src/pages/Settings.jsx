@@ -8,8 +8,9 @@ import Branches from './Branches'
 import Users from './Users'
 import ThemeManagement from './ThemeManagement'
 import Sessions from './Sessions'
+import ProductCodeCleanup from './ProductCodeCleanup'
 
-const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Active Sessions']
+const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Active Sessions', 'Clean Up Variant Codes']
 
 function LanguageSettings() {
   const [language, setLanguage] = useState('English')
@@ -65,7 +66,7 @@ export default function Settings() {
   const { isAdmin } = useAuth()
   const [tab, setTab] = useState('Theme Management')
 
-  const visibleTabs = TABS.filter((t) => (t !== 'Users' && t !== 'Active Sessions') || isAdmin)
+  const visibleTabs = TABS.filter((t) => (t !== 'Users' && t !== 'Active Sessions' && t !== 'Clean Up Variant Codes') || isAdmin)
 
   return (
     <div>
@@ -80,6 +81,7 @@ export default function Settings() {
       {tab === 'Branches & Departments' && <Branches />}
       {tab === 'Users' && <Users />}
       {tab === 'Active Sessions' && <Sessions />}
+      {tab === 'Clean Up Variant Codes' && <ProductCodeCleanup />}
     </div>
   )
 }

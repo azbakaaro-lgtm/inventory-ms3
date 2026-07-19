@@ -62,7 +62,13 @@ export async function parseProductFile(file, existingProducts) {
   const qtyCol = matchHeader(headerRow, QTY_HEADERS)
   const unitCol = matchHeader(headerRow, UNIT_HEADERS)
 
-  const existingCodes = new Set(existingProducts.map((p) => normalize(p.code).toLowerCase()).filter(Boolean))
+  // Key on Code + Name together — the same Product Code is allowed to repeat
+  // across different sizes/variants (e.g. "PC0000023" for both "Tute Labis
+  // (Black, 3XL)" and "Tute Labis (Black, L)"); only an exact Code+Name match
+  // counts as a real duplicate.
+  const existingKeys = new Set(
+    existingProducts.map((p) => `${normalize(p.code).toLowerCase()}|${normalize(p.name).toLowerCase()}`)
+  )
   const seenInFile = new Set()
   const toCreate = []
   const skipped = []
@@ -86,16 +92,16 @@ export async function parseProductFile(file, existingProducts) {
       continue
     }
 
-    const codeKey = rawCode.toLowerCase()
-    if (existingCodes.has(codeKey)) {
-      skipped.push({ row: rowLabel, reason: `Duplicate — Product Code "${rawCode}" already exists` })
+    const key = `${rawCode.toLowerCase()}|${rawName.toLowerCase()}`
+    if (existingKeys.has(key)) {
+      skipped.push({ row: rowLabel, reason: `Duplicate — "${rawCode}" / "${rawName}" already exists` })
       continue
     }
-    if (seenInFile.has(codeKey)) {
-      skipped.push({ row: rowLabel, reason: `Duplicate — Product Code "${rawCode}" repeated in this file` })
+    if (seenInFile.has(key)) {
+      skipped.push({ row: rowLabel, reason: `Duplicate — "${rawCode}" / "${rawName}" repeated in this file` })
       continue
     }
-    seenInFile.add(codeKey)
+    seenInFile.add(key)
 
     const quantityRaw = qtyCol !== -1 ? row[qtyCol] : 0
     const quantity = Number(quantityRaw)
