@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addDoc, collection, doc, updateDoc, increment, serverTimestamp, runTransaction } from 'firebase/firestore'
+import { addDoc, collection, doc, updateDoc, increment, serverTimestamp, runTransaction, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
@@ -7,6 +7,14 @@ import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
 
 const emptyRows = () => [{ productId: '', qty: 1 }]
+const todayStr = () => new Date().toISOString().slice(0, 10)
+// Keeps the time-of-day from "now" so same-day edits don't all collapse to midnight.
+function dateStrToTimestamp(dateStr) {
+  const now = new Date()
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const combined = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds())
+  return Timestamp.fromDate(combined)
+}
 
 export default function Sales() {
   const { ownerId } = useAuth()
@@ -20,6 +28,7 @@ export default function Sales() {
   const [customerId, setCustomerId] = useState('')
   const [rows, setRows] = useState(emptyRows())
   const [notes, setNotes] = useState('')
+  const [saleDate, setSaleDate] = useState(todayStr())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -32,7 +41,7 @@ export default function Sales() {
 
   function updateRow(i, patch) { setRows(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r))) }
   function addRow() { setRows([...rows, { productId: '', qty: 1 }]) }
-  function resetForm() { setCustomerId(''); setRows(emptyRows()); setNotes(''); setEditingSale(null); setError('') }
+  function resetForm() { setCustomerId(''); setRows(emptyRows()); setNotes(''); setEditingSale(null); setError(''); setSaleDate(todayStr()) }
 
   function openNewSale() {
     resetForm()
@@ -44,6 +53,7 @@ export default function Sales() {
     setCustomerId(sale.customerId || '')
     setRows((sale.items || []).map((it) => ({ productId: it.productId, qty: it.qty })))
     setNotes(sale.notes || '')
+    setSaleDate(sale.date?.toDate ? sale.date.toDate().toISOString().slice(0, 10) : todayStr())
     setError('')
     setModalOpen(true)
   }
@@ -86,7 +96,7 @@ export default function Sales() {
       }),
       notes,
       status: 'Completed',
-      date: serverTimestamp(),
+      date: dateStrToTimestamp(saleDate),
     })
 
     for (const r of validRows) {
@@ -160,6 +170,7 @@ export default function Sales() {
         quantity: newTotalQty,
         items: newItems,
         notes,
+        date: dateStrToTimestamp(saleDate),
       })
     })
   }
@@ -256,10 +267,14 @@ export default function Sales() {
 
       <Modal open={modalOpen} title={editingSale ? `Edit Sale — ${editingSale.reference}` : 'New Sale'} onClose={() => setModalOpen(false)} wide>
         <form onSubmit={completeSale}>
-          <div className="form-row"><label>Customer Name (Optional)</label>
-            <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-              {customerOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select></div>
+          <div className="form-grid">
+            <div className="form-row"><label>Customer Name (Optional)</label>
+              <select className="input" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+                {customerOptions.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select></div>
+            <div className="form-row"><label>Date</label>
+              <input className="input" type="date" value={saleDate} max={todayStr()} onChange={(e) => setSaleDate(e.target.value)} required /></div>
+          </div>
 
           <label style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>Items</label>
           {rows.map((row, i) => (
