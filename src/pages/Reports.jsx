@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { useTenantCollection } from '../hooks/useTenantCollection'
+import { useScopedCollection } from '../hooks/useScopedCollection'
+import UserScopeSelector from '../components/UserScopeSelector'
 import { classifyMovement } from '../utils/analytics'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -8,10 +9,10 @@ import * as XLSX from 'xlsx'
 const TABS = ['Daily Report', 'Weekly Report', 'Monthly Report', 'Stock In Report', 'Stock Out Report', 'Sales Report', 'Fast Moving Report', 'Slow Moving Report', 'Low Stock Report']
 
 export default function Reports() {
-  const { items: products } = useTenantCollection('products')
-  const { items: stockIn } = useTenantCollection('stockIn')
-  const { items: stockOut } = useTenantCollection('stockOut')
-  const { items: sales } = useTenantCollection('sales')
+  const { items: products } = useScopedCollection('products')
+  const { items: stockIn } = useScopedCollection('stockIn')
+  const { items: stockOut } = useScopedCollection('stockOut')
+  const { items: sales } = useScopedCollection('sales')
   const [tab, setTab] = useState('Daily Report')
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')

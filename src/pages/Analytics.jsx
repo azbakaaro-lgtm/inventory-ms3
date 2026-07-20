@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LineChart, Line, Legend } from 'recharts'
-import { useTenantCollection } from '../hooks/useTenantCollection'
+import { useScopedCollection } from '../hooks/useScopedCollection'
+import UserScopeSelector from '../components/UserScopeSelector'
 import { classifyMovement, lastNDays } from '../utils/analytics'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -9,10 +10,10 @@ import html2canvas from 'html2canvas'
 const TABS = ['Fast Moving', 'Medium Moving', 'Slow Moving', 'Low Stock']
 
 export default function Analytics() {
-  const { items: products } = useTenantCollection('products')
-  const { items: stockOut } = useTenantCollection('stockOut')
-  const { items: stockIn } = useTenantCollection('stockIn')
-  const { items: sales } = useTenantCollection('sales')
+  const { items: products } = useScopedCollection('products')
+  const { items: stockOut } = useScopedCollection('stockOut')
+  const { items: stockIn } = useScopedCollection('stockIn')
+  const { items: sales } = useScopedCollection('sales')
   const location = useLocation()
   const [tab, setTab] = useState(TABS.includes(location.state?.tab) ? location.state.tab : 'Fast Moving')
   const reportRef = useRef(null)

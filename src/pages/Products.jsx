@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react'
 import { addDoc, collection, deleteDoc, doc, updateDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { useTenantCollection } from '../hooks/useTenantCollection'
+import { useScopedCollection, useOwnCollection } from '../hooks/useScopedCollection'
+import UserScopeSelector from '../components/UserScopeSelector'
 import Modal from '../components/Modal'
 import ImportProductsModal from '../components/ImportProductsModal'
 import { exportProductsPdf } from '../utils/productPdf'
@@ -10,8 +11,9 @@ import { exportProductsPdf } from '../utils/productPdf'
 const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, description: '' }
 
 export default function Products() {
-  const { ownerId } = useAuth()
-  const { items: products, loading } = useTenantCollection('products')
+  const { ownerId, firebaseUser } = useAuth()
+  const { items: products, loading } = useScopedCollection('products')
+  const { items: ownProducts } = useOwnCollection('products')
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [modalOpen, setModalOpen] = useState(false)
@@ -46,7 +48,7 @@ export default function Products() {
     if (editing) {
       await updateDoc(doc(db, 'products', editing.id), payload)
     } else {
-      await addDoc(collection(db, 'products'), { ...payload, createdAt: serverTimestamp() })
+      await addDoc(collection(db, 'products'), { ...payload, ownerId, subOwnerId: firebaseUser.uid, createdAt: serverTimestamp() })
     }
     setModalOpen(false)
   }
@@ -93,6 +95,7 @@ export default function Products() {
 
   return (
     <div>
+      <UserScopeSelector />
       <div className="page-header">
         <h1>Products</h1>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -177,7 +180,8 @@ export default function Products() {
         open={importOpen}
         onClose={() => setImportOpen(false)}
         ownerId={ownerId}
-        existingProducts={products}
+        subOwnerId={firebaseUser?.uid}
+        existingProducts={ownProducts}
       />
     </div>
   )

@@ -6,7 +6,7 @@ import { parseProductFile } from '../utils/productImport'
 
 const CHUNK_SIZE = 400 // stay comfortably under Firestore's 500-write batch limit
 
-export default function ImportProductsModal({ open, onClose, ownerId, existingProducts }) {
+export default function ImportProductsModal({ open, onClose, ownerId, subOwnerId, existingProducts }) {
   const [fileName, setFileName] = useState('')
   const [parsing, setParsing] = useState(false)
   const [result, setResult] = useState(null) // { toCreate, skipped, error }
@@ -43,7 +43,7 @@ export default function ImportProductsModal({ open, onClose, ownerId, existingPr
         const batch = writeBatch(db)
         chunk.forEach((row) => {
           const ref = doc(collection(db, 'products'))
-          batch.set(ref, { ...row, ownerId, createdAt: serverTimestamp() })
+          batch.set(ref, { ...row, ownerId, subOwnerId, createdAt: serverTimestamp() })
         })
         await batch.commit()
       }

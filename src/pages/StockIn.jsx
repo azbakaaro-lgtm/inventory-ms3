@@ -1,15 +1,24 @@
 import { useState } from 'react'
-import { addDoc, collection, deleteDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, updateDoc, increment, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
+import { useScopedCollection, useOwnCollection } from '../hooks/useScopedCollection'
+import UserScopeSelector from '../components/UserScopeSelector'
 import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
 
+const todayStr = () => new Date().toISOString().slice(0, 10)
+function dateStrToTimestamp(dateStr) {
+  const now = new Date()
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return Timestamp.fromDate(new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds()))
+}
+
 export default function StockIn() {
-  const { ownerId } = useAuth()
-  const { items: entries, loading } = useTenantCollection('stockIn')
-  const { items: products } = useTenantCollection('products')
+  const { ownerId, firebaseUser } = useAuth()
+  const { items: entries, loading } = useScopedCollection('stockIn')
+  const { items: products } = useOwnCollection('products')
   const { items: branches } = useTenantCollection('branches')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -17,6 +26,7 @@ export default function StockIn() {
   const [branchId, setBranchId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [note, setNote] = useState('')
+  const [entryDate, setEntryDate] = useState(todayStr())
 
   const total = entries.reduce((s, e) => s + Number(e.quantity || 0), 0)
   const filtered = entries
@@ -26,7 +36,7 @@ export default function StockIn() {
   const productOptions = products.map((p) => ({ value: p.id, label: p.name, sublabel: p.code }))
   const branchOptions = branches.map((b) => ({ value: b.id, label: b.name }))
 
-  function resetForm() { setProductId(''); setBranchId(''); setQuantity(''); setNote('') }
+  function resetForm() { setProductId(''); setBranchId(''); setQuantity(''); setNote(''); setEntryDate(todayStr()) }
 
   async function save(e) {
     e.preventDefault()
@@ -35,6 +45,7 @@ export default function StockIn() {
     if (!product || !quantity) return
     await addDoc(collection(db, 'stockIn'), {
       ownerId,
+      subOwnerId: firebaseUser.uid,
       productId: product.id,
       productCode: product.code,
       productName: product.name,
@@ -43,7 +54,7 @@ export default function StockIn() {
       branchId: branch?.id || null,
       branchName: branch?.name || '—',
       note,
-      date: serverTimestamp(),
+      date: dateStrToTimestamp(entryDate),
     })
     await updateDoc(doc(db, 'products', product.id), { quantity: increment(Number(quantity)) })
     setModalOpen(false)
@@ -57,6 +68,7 @@ export default function StockIn() {
 
   return (
     <div>
+      <UserScopeSelector />
       <div className="page-header">
         <h1>Stock In</h1>
         <button className="btn btn-gold" onClick={() => setModalOpen(true)}>+ Add Stock</button>
@@ -95,8 +107,12 @@ export default function StockIn() {
             <SearchSelect options={productOptions} value={productId} onChange={setProductId} placeholder="Search product name or code..." /></div>
           <div className="form-row"><label>Branch</label>
             <SearchSelect options={branchOptions} value={branchId} onChange={setBranchId} placeholder="Search branch..." /></div>
-          <div className="form-row"><label>Quantity*</label>
-            <input className="input" type="number" required value={quantity} onChange={(e) => setQuantity(e.target.value)} /></div>
+          <div className="form-grid">
+            <div className="form-row"><label>Quantity*</label>
+              <input className="input" type="number" required value={quantity} onChange={(e) => setQuantity(e.target.value)} /></div>
+            <div className="form-row"><label>Date</label>
+              <input className="input" type="date" value={entryDate} max={todayStr()} onChange={(e) => setEntryDate(e.target.value)} required /></div>
+          </div>
           <div className="form-row"><label>Reference Note</label>
             <input className="input" placeholder="Invoice #, purchase reference" value={note} onChange={(e) => setNote(e.target.value)} /></div>
           <div className="modal-footer">

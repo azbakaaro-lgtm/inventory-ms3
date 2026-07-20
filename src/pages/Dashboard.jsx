@@ -1,13 +1,14 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useTenantCollection } from '../hooks/useTenantCollection'
+import { useScopedCollection } from '../hooks/useScopedCollection'
+import UserScopeSelector from '../components/UserScopeSelector'
 import { classifyMovement } from '../utils/analytics'
 
 export default function Dashboard() {
-  const { items: products } = useTenantCollection('products')
-  const { items: stockIn } = useTenantCollection('stockIn')
-  const { items: stockOut } = useTenantCollection('stockOut')
-  const { items: sales } = useTenantCollection('sales')
+  const { items: products } = useScopedCollection('products')
+  const { items: stockIn } = useScopedCollection('stockIn')
+  const { items: stockOut } = useScopedCollection('stockOut')
+  const { items: sales } = useScopedCollection('sales')
 
   const totalStockAvailable = products.reduce((s, p) => s + Number(p.quantity || 0), 0)
   const totalStockAdded = stockIn.reduce((s, e) => s + Number(e.quantity || 0), 0)
@@ -39,6 +40,7 @@ export default function Dashboard() {
 
   return (
     <div>
+      <UserScopeSelector />
       <div className="page-header"><h1>This Month</h1></div>
 
       <div className="cards-grid">

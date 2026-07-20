@@ -1,15 +1,24 @@
 import { useState } from 'react'
-import { addDoc, collection, deleteDoc, doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, updateDoc, increment, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
+import { useScopedCollection, useOwnCollection } from '../hooks/useScopedCollection'
+import UserScopeSelector from '../components/UserScopeSelector'
 import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
 
+const todayStr = () => new Date().toISOString().slice(0, 10)
+function dateStrToTimestamp(dateStr) {
+  const now = new Date()
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return Timestamp.fromDate(new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds()))
+}
+
 export default function StockOut() {
-  const { ownerId } = useAuth()
-  const { items: entries, loading } = useTenantCollection('stockOut')
-  const { items: products } = useTenantCollection('products')
+  const { ownerId, firebaseUser } = useAuth()
+  const { items: entries, loading } = useScopedCollection('stockOut')
+  const { items: products } = useOwnCollection('products')
   const { items: branches } = useTenantCollection('branches')
   const { items: departments } = useTenantCollection('departments')
   const [search, setSearch] = useState('')
@@ -18,6 +27,7 @@ export default function StockOut() {
   const [destinationId, setDestinationId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [note, setNote] = useState('')
+  const [entryDate, setEntryDate] = useState(todayStr())
 
   const total = entries.reduce((s, e) => s + Number(e.quantity || 0), 0)
   const filtered = entries
@@ -30,7 +40,7 @@ export default function StockOut() {
     ...departments.map((d) => ({ value: `dept:${d.id}`, label: d.name, sublabel: 'Department' })),
   ]
 
-  function resetForm() { setProductId(''); setDestinationId(''); setQuantity(''); setNote('') }
+  function resetForm() { setProductId(''); setDestinationId(''); setQuantity(''); setNote(''); setEntryDate(todayStr()) }
 
   async function save(e) {
     e.preventDefault()
@@ -39,6 +49,7 @@ export default function StockOut() {
     if (!product || !quantity) return
     await addDoc(collection(db, 'stockOut'), {
       ownerId,
+      subOwnerId: firebaseUser.uid,
       productId: product.id,
       productCode: product.code,
       productName: product.name,
@@ -46,7 +57,7 @@ export default function StockOut() {
       quantity: Number(quantity),
       destinationName: dest?.label || '—',
       note,
-      date: serverTimestamp(),
+      date: dateStrToTimestamp(entryDate),
     })
     await updateDoc(doc(db, 'products', product.id), { quantity: increment(-Number(quantity)) })
     setModalOpen(false)
@@ -60,6 +71,7 @@ export default function StockOut() {
 
   return (
     <div>
+      <UserScopeSelector />
       <div className="page-header">
         <h1>Stock Out</h1>
         <button className="btn btn-gold" onClick={() => setModalOpen(true)}>+ Issue Stock</button>
@@ -98,8 +110,12 @@ export default function StockOut() {
             <SearchSelect options={productOptions} value={productId} onChange={setProductId} placeholder="Search product name or code..." /></div>
           <div className="form-row"><label>Destination Branch/Department*</label>
             <SearchSelect options={destinationOptions} value={destinationId} onChange={setDestinationId} placeholder="Search destination..." /></div>
-          <div className="form-row"><label>Quantity*</label>
-            <input className="input" type="number" required value={quantity} onChange={(e) => setQuantity(e.target.value)} /></div>
+          <div className="form-grid">
+            <div className="form-row"><label>Quantity*</label>
+              <input className="input" type="number" required value={quantity} onChange={(e) => setQuantity(e.target.value)} /></div>
+            <div className="form-row"><label>Date</label>
+              <input className="input" type="date" value={entryDate} max={todayStr()} onChange={(e) => setEntryDate(e.target.value)} required /></div>
+          </div>
           <div className="form-row"><label>Reference Note</label>
             <input className="input" placeholder="Issue slip #, department request" value={note} onChange={(e) => setNote(e.target.value)} /></div>
           <div className="modal-footer">

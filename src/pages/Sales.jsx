@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { addDoc, collection, doc, updateDoc, increment, serverTimestamp, runTransaction, Timestamp } from 'firebase/firestore'
+import { addDoc, collection, doc, updateDoc, increment, runTransaction, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
+import { useScopedCollection, useOwnCollection, useProductsForSubOwner } from '../hooks/useScopedCollection'
+import UserScopeSelector from '../components/UserScopeSelector'
 import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
 import SalesPdfImportModal from '../components/SalesPdfImportModal'
@@ -18,9 +20,9 @@ function dateStrToTimestamp(dateStr) {
 }
 
 export default function Sales() {
-  const { ownerId } = useAuth()
-  const { items: sales, loading } = useTenantCollection('sales')
-  const { items: products } = useTenantCollection('products')
+  const { ownerId, firebaseUser, isAdmin } = useAuth()
+  const { items: sales, loading } = useScopedCollection('sales')
+  const { items: ownProducts } = useOwnCollection('products') // product picker for a NEW sale
   const { items: customers } = useTenantCollection('customers')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -33,6 +35,12 @@ export default function Sales() {
   const [saleDate, setSaleDate] = useState(todayStr())
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  // When editing an existing sale, the product picker must show whoever
+  // originally created it — not necessarily the current editor's own stock.
+  const editSubOwnerId = editingSale?.subOwnerId || firebaseUser?.uid
+  const editOwnerProducts = useProductsForSubOwner(editingSale ? editSubOwnerId : null)
+  const products = editingSale ? editOwnerProducts : ownProducts
 
   const productOptions = products.map((p) => ({ value: p.id, label: p.name, sublabel: p.code }))
   const customerOptions = [{ value: '', label: 'Walk-in Customer' }, ...customers.map((c) => ({ value: c.id, label: c.name }))]
@@ -58,6 +66,10 @@ export default function Sales() {
     setSaleDate(sale.date?.toDate ? sale.date.toDate().toISOString().slice(0, 10) : todayStr())
     setError('')
     setModalOpen(true)
+  }
+
+  function canManage(sale) {
+    return isAdmin || sale.subOwnerId === firebaseUser?.uid
   }
 
   async function completeSale(e) {
@@ -88,6 +100,7 @@ export default function Sales() {
 
     await addDoc(collection(db, 'sales'), {
       ownerId,
+      subOwnerId: firebaseUser.uid,
       reference,
       customerId: customerId || null,
       customerName: customer?.name || 'Walk-in Customer',
@@ -212,6 +225,7 @@ export default function Sales() {
 
   return (
     <div>
+      <UserScopeSelector />
       <div className="page-header">
         <h1>Sales</h1>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -236,8 +250,12 @@ export default function Sales() {
                 <td><span className="pill pill-in">{s.status}</span></td>
                 <td>
                   <button className="btn btn-ghost btn-sm" onClick={() => setViewingSale(s)}>👁️ View</button>{' '}
-                  <button className="btn btn-ghost btn-sm" onClick={() => openEditSale(s)}>✏️</button>{' '}
-                  <button className="btn btn-danger btn-sm" onClick={() => removeSale(s)}>🗑️</button>
+                  {canManage(s) && (
+                    <>
+                      <button className="btn btn-ghost btn-sm" onClick={() => openEditSale(s)}>✏️</button>{' '}
+                      <button className="btn btn-danger btn-sm" onClick={() => removeSale(s)}>🗑️</button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -257,7 +275,7 @@ export default function Sales() {
                 <thead><tr><th>Product</th><th>Qty</th></tr></thead>
                 <tbody>
                   {(viewingSale.items || []).map((it, i) => (
-                    <tr key={i}><td>{it.name || products.find((p) => p.id === it.productId)?.name || '—'}</td><td>{it.qty}</td></tr>
+                    <tr key={i}><td>{it.name || '—'}</td><td>{it.qty}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -306,7 +324,8 @@ export default function Sales() {
         open={pdfImportOpen}
         onClose={() => setPdfImportOpen(false)}
         ownerId={ownerId}
-        products={products}
+        subOwnerId={firebaseUser?.uid}
+        products={ownProducts}
       />
     </div>
   )

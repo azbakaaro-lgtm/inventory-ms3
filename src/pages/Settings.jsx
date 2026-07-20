@@ -9,8 +9,9 @@ import Users from './Users'
 import ThemeManagement from './ThemeManagement'
 import Sessions from './Sessions'
 import ProductCodeCleanup from './ProductCodeCleanup'
+import ChangePassword from './ChangePassword'
 
-const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Active Sessions', 'Clean Up Variant Codes']
+const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Active Sessions', 'Clean Up Variant Codes', 'Change Password']
 
 function LanguageSettings() {
   const [language, setLanguage] = useState('English')
@@ -28,13 +29,16 @@ function LanguageSettings() {
   )
 }
 
+import { useScopedCollection } from '../hooks/useScopedCollection'
+import UserScopeSelector from '../components/UserScopeSelector'
 function LowStockSettings() {
-  const { items: products } = useTenantCollection('products')
+  const { items: products } = useScopedCollection('products')
   async function updateMin(p, value) {
     await updateDoc(doc(db, 'products', p.id), { minQuantity: Number(value) })
   }
   return (
     <div className="card">
+      <UserScopeSelector />
       <h3>Set Low Stock Threshold</h3>
       <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
         Set the minimum quantity for each product. Items at or below this number show as low stock everywhere in the app.
@@ -82,6 +86,7 @@ export default function Settings() {
       {tab === 'Users' && <Users />}
       {tab === 'Active Sessions' && <Sessions />}
       {tab === 'Clean Up Variant Codes' && <ProductCodeCleanup />}
+      {tab === 'Change Password' && <ChangePassword />}
     </div>
   )
 }
