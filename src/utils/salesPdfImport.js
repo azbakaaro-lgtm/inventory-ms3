@@ -16,40 +16,40 @@ function normalize(v) {
 }
 
 // Groups pdf.js text items into lines using their vertical (y) position —
-// items on the same visual line share (roughly) the same y coordinate.
+// items are clustered by y-proximity (within a small tolerance) rather than
+// exact/rounded equality, since real PDFs often have tiny sub-pixel y
+// differences between text runs that sit on the same visual line.
 async function extractLines(pdf) {
+  const Y_TOLERANCE = 3
   const lines = []
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum)
     const content = await page.getTextContent()
-    const rows = new Map() // y (rounded) -> array of {x, str}
-    content.items.forEach((item) => {
-      const y = Math.round(item.transform[5])
-      const x = item.transform[4]
-      if (!rows.has(y)) rows.set(y, [])
-      rows.get(y).push({ x, str: item.str })
+    const items = content.items
+      .map((item) => ({ x: item.transform[4], y: item.transform[5], str: item.str }))
+      .filter((it) => it.str !== '')
+      .sort((a, b) => b.y - a.y || a.x - b.x) // top to bottom, left to right
+
+    let current = []
+    let currentY = null
+    items.forEach((it) => {
+      if (currentY === null || Math.abs(it.y - currentY) <= Y_TOLERANCE) {
+        current.push(it)
+        currentY = currentY === null ? it.y : currentY
+      } else {
+        if (current.length) lines.push(current.sort((a, b) => a.x - b.x).map((p) => p.str).join(' ').replace(/\s+/g, ' ').trim())
+        current = [it]
+        currentY = it.y
+      }
     })
-    const sortedY = [...rows.keys()].sort((a, b) => b - a) // top to bottom
-    sortedY.forEach((y) => {
-      const parts = rows.get(y).sort((a, b) => a.x - b.x)
-      const line = parts.map((p) => p.str).join(' ').replace(/\s+/g, ' ').trim()
-      if (line) lines.push(line)
-    })
+    if (current.length) lines.push(current.sort((a, b) => a.x - b.x).map((p) => p.str).join(' ').replace(/\s+/g, ' ').trim())
   }
-  return lines
+  return lines.filter(Boolean)
 }
 
-// Parses a Daily/Session Sales Report PDF (the "[CODE] Name  Qty  $Amount"
-// style export) into product rows. Ignores the money amount per the store's
-// requirement — only Qty is used. Rows without a recognizable "[CODE]"
-// prefix (branch/category subtotals, discounts, unlabeled items) are
-// returned separately under `noCode` so the person can review and decide
-// which — if any — to include, rather than guessing automatically.
-export async function parseSalesReportPdf(file) {
-  const buffer = await file.arrayBuffer()
-  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
-  const lines = await extractLines(pdf)
-
+// Core parser shared by both the PDF-extracted lines and the manual
+// paste-text fallback below.
+function parseLines(lines) {
   const dateMatch = lines.join(' ').match(/As of\s+(\d{1,2}\/\d{1,2}\/\d{4})/i)
   const reportDate = dateMatch ? dateMatch[1] : null
 
@@ -83,4 +83,25 @@ export async function parseSalesReportPdf(file) {
   }
 
   return { reportDate, withCode, noCode }
+}
+
+// Parses a Daily/Session Sales Report PDF (the "[CODE] Name  Qty  $Amount"
+// style export) into product rows. Ignores the money amount per the store's
+// requirement — only Qty is used. Rows without a recognizable "[CODE]"
+// prefix (branch/category subtotals, discounts, unlabeled items) are
+// returned separately under `noCode` so the person can review and decide
+// which — if any — to include, rather than guessing automatically.
+export async function parseSalesReportPdf(file) {
+  const buffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise
+  const lines = await extractLines(pdf)
+  return parseLines(lines)
+}
+
+// Fallback path: parses the same report from plain text the person pasted
+// in (e.g. selected and copied from a PDF viewer). Useful when a PDF's
+// internal text layout doesn't extract cleanly into lines automatically.
+export function parseSalesReportText(text) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  return parseLines(lines)
 }

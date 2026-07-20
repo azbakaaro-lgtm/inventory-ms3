@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { addDoc, collection, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import Modal from './Modal'
-import { parseSalesReportPdf } from '../utils/salesPdfImport'
+import { parseSalesReportPdf, parseSalesReportText } from '../utils/salesPdfImport'
 
 function normalize(v) {
   return String(v ?? '').trim().toLowerCase()
@@ -67,9 +67,28 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, products }
   const [importing, setImporting] = useState(false)
   const [done, setDone] = useState(null)
   const [error, setError] = useState('')
+  const [pasteText, setPasteText] = useState('')
+  const [showPaste, setShowPaste] = useState(false)
 
   function reset() {
-    setFileName(''); setParsed(null); setSelections([]); setSaleDate(''); setDone(null); setError('')
+    setFileName(''); setParsed(null); setSelections([]); setSaleDate(''); setDone(null); setError(''); setPasteText(''); setShowPaste(false)
+  }
+
+  function applyResult(result) {
+    const withCodeSel = result.withCode.map((row) => {
+      const candidates = candidatesForCode(products, row.code)
+      const guess = bestGuess(candidates, row.name)
+      return { included: !!guess, productId: guess?.id || '', qty: row.qty, rawLine: row.rawLine }
+    })
+    const noCodeSel = result.noCode.map((row) => ({ included: false, productId: '', qty: row.qty, rawLine: row.rawLine }))
+    setParsed(result)
+    setSelections([...withCodeSel, ...noCodeSel])
+    setSaleDate(mmddyyyyToInputDate(result.reportDate) || new Date().toISOString().slice(0, 10))
+    if (result.withCode.length === 0 && result.noCode.length === 0) {
+      setError('No rows were found. If you uploaded a PDF and got no results, try the "paste text" option below instead.')
+    } else {
+      setError('')
+    }
   }
 
   async function handleFile(e) {
@@ -80,20 +99,19 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, products }
     setError('')
     try {
       const result = await parseSalesReportPdf(file)
-      const withCodeSel = result.withCode.map((row) => {
-        const candidates = candidatesForCode(products, row.code)
-        const guess = bestGuess(candidates, row.name)
-        return { included: !!guess, productId: guess?.id || '', qty: row.qty, rawLine: row.rawLine }
-      })
-      const noCodeSel = result.noCode.map((row) => ({ included: false, productId: '', qty: row.qty, rawLine: row.rawLine }))
-      setParsed(result)
-      setSelections([...withCodeSel, ...noCodeSel])
-      setSaleDate(mmddyyyyToInputDate(result.reportDate) || new Date().toISOString().slice(0, 10))
+      applyResult(result)
     } catch (err) {
-      setError('Could not read this PDF. Please make sure it\'s a text-based sales report (not a scanned image).')
+      setError('Could not read this PDF. Please make sure it\'s a text-based sales report (not a scanned image), or try the "paste text" option below.')
     } finally {
       setParsing(false)
     }
+  }
+
+  function handleParsePastedText() {
+    if (!pasteText.trim()) return
+    setError('')
+    const result = parseSalesReportText(pasteText)
+    applyResult(result)
   }
 
   function updateSelection(index, next) {
@@ -154,10 +172,41 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, products }
           <input type="file" accept=".pdf" onChange={handleFile} />
           {parsing && <p>Reading PDF…</p>}
           {error && <div className="login-error">{error}</div>}
+
+          <div style={{ marginTop: 16 }}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPaste((s) => !s)}>
+              {showPaste ? 'Hide' : 'Or paste the report text instead'}
+            </button>
+            {showPaste && (
+              <div style={{ marginTop: 8 }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Open the PDF, select all the text (Ctrl+A), copy it (Ctrl+C), and paste it below. Use this if uploading the PDF file directly finds no rows.
+                </p>
+                <textarea className="input" rows={8} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder="Paste the sales report text here..." />
+                <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={handleParsePastedText}>Parse Pasted Text</button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {parsed && !done && (
+      {parsed && !done && selections.length === 0 && (
+        <div>
+          <div className="login-error">{error || 'No rows were found in this file.'}</div>
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Try pasting the report text instead — open the PDF, select all (Ctrl+A), copy (Ctrl+C), and paste below.
+            </p>
+            <textarea className="input" rows={8} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder="Paste the sales report text here..." />
+            <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 8 }} onClick={handleParsePastedText}>Parse Pasted Text</button>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-ghost" onClick={reset}>Choose Different File</button>
+          </div>
+        </div>
+      )}
+
+      {parsed && !done && selections.length > 0 && (
         <div>
           <div className="form-row" style={{ maxWidth: 220 }}>
             <label>Sale Date</label>
