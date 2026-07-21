@@ -12,7 +12,10 @@ export default function Dashboard() {
 
   const totalStockAvailable = products.reduce((s, p) => s + Number(p.quantity || 0), 0)
   const totalStockAdded = stockIn.reduce((s, e) => s + Number(e.quantity || 0), 0)
-  const totalStockIssued = stockOut.reduce((s, e) => s + Number(e.quantity || 0), 0)
+  // Everything that actually left the shelf — Stock Out transfers plus customer Sales.
+  const totalStockIssued =
+    stockOut.reduce((s, e) => s + Number(e.quantity || 0), 0) +
+    sales.reduce((s, sale) => s + Number(sale.quantity || 0), 0)
   const lowStock = products.filter((p) => Number(p.quantity) <= Number(p.minQuantity ?? 5))
 
   const { fast, medium, slow } = useMemo(() => classifyMovement(products, stockOut, sales), [products, stockOut, sales])
