@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addDoc, collection, Timestamp } from 'firebase/firestore'
+import { addDoc, collection, doc, increment, updateDoc, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import Modal from './Modal'
 import { parseSalesReportPdf, parseSalesReportText } from '../utils/salesPdfImport'
@@ -16,19 +16,44 @@ function candidatesForCode(products, code) {
   return products.filter((p) => normalize(p.code) === key)
 }
 
+function wordsOf(text) {
+  return normalize(text).split(/[^a-z0-9]+/).filter(Boolean)
+}
+
 // Best-effort auto-pick when a code has multiple size/variant candidates:
-// prefer the one whose name shares the most words with the PDF row's name.
-function bestGuess(candidates, rowName) {
+// prefer the one whose name shares the most words with the PDF row's name
+// (e.g. "Tute Labis (Green, 2XL)" vs "Tute Labis (Gray, 2XL)" — the color/
+// size words decide which one it actually is).
+function bestGuessAmong(candidates, rowName) {
   if (candidates.length === 1) return candidates[0]
-  const rowWords = normalize(rowName).split(/[^a-z0-9]+/).filter(Boolean)
+  const rowWords = wordsOf(rowName)
   let best = null
   let bestScore = 0
   candidates.forEach((p) => {
-    const nameWords = normalize(p.name).split(/[^a-z0-9]+/).filter(Boolean)
+    const nameWords = wordsOf(p.name)
     const score = nameWords.filter((w) => rowWords.includes(w)).length
     if (score > bestScore) { bestScore = score; best = p }
   })
   return bestScore > 0 ? best : null
+}
+
+// For rows with no product code at all, match purely by name against the
+// whole catalog. Requires most of the product's own name words to appear
+// in the row text, so things like "Not Categorized" or "Printer Branch"
+// (section totals, not real products) don't accidentally match anything.
+function bestGuessByName(products, rowName) {
+  const rowWords = wordsOf(rowName)
+  if (rowWords.length === 0) return null
+  let best = null
+  let bestScore = 0
+  products.forEach((p) => {
+    const nameWords = wordsOf(p.name)
+    if (nameWords.length === 0) return
+    const matched = nameWords.filter((w) => rowWords.includes(w)).length
+    const coverage = matched / nameWords.length
+    if (coverage >= 0.8 && matched > bestScore) { bestScore = matched; best = p }
+  })
+  return best
 }
 
 function mmddyyyyToInputDate(str) {
@@ -77,10 +102,13 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
   function applyResult(result) {
     const withCodeSel = result.withCode.map((row) => {
       const candidates = candidatesForCode(products, row.code)
-      const guess = bestGuess(candidates, row.name)
+      const guess = bestGuessAmong(candidates, row.name)
       return { included: !!guess, productId: guess?.id || '', qty: row.qty, rawLine: row.rawLine }
     })
-    const noCodeSel = result.noCode.map((row) => ({ included: false, productId: '', qty: row.qty, rawLine: row.rawLine }))
+    const noCodeSel = result.noCode.map((row) => {
+      const guess = bestGuessByName(products, row.name)
+      return { included: !!guess, productId: guess?.id || '', qty: row.qty, rawLine: row.rawLine }
+    })
     setParsed(result)
     setSelections([...withCodeSel, ...noCodeSel])
     setSaleDate(mmddyyyyToInputDate(result.reportDate) || new Date().toISOString().slice(0, 10))
@@ -143,10 +171,14 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
         customerName: 'Walk-in Customer',
         quantity: totalQty,
         items,
-        notes: `Imported from sales report PDF${fileName ? ` (${fileName})` : ''}. Stock was not adjusted — this is a record only.`,
+        notes: `Imported from sales report PDF${fileName ? ` (${fileName})` : ''}.`,
         status: 'Completed',
         date,
       })
+
+      for (const s of includedRows) {
+        await updateDoc(doc(db, 'products', s.productId), { quantity: increment(-Number(s.qty)) })
+      }
 
       setDone({ count: includedRows.length })
     } catch (err) {
@@ -167,8 +199,8 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
         <div>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
             Upload a daily/session sales report PDF (the "[Code] Name  Qty  $Amount" style export).
-            This only records the <strong>quantity sold</strong> for reporting — it does <strong>not</strong>{' '}
-            change product stock, since that report reflects sales that already happened.
+            Rows are matched to your products automatically by code and/or name — review the picks below,
+            then confirm. Matched items will have their <strong>quantity sold deducted from stock</strong>.
           </p>
           <input type="file" accept=".pdf" onChange={handleFile} />
           {parsing && <p>Reading PDF…</p>}
@@ -216,7 +248,9 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
 
           <h4 style={{ marginBottom: 4 }}>Matched to a product ({selections.filter((s) => s.included && s.productId).length} selected)</h4>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            Review each row — some product codes repeat across sizes, so double-check the picked product matches the size/name in the report line.
+            Rows were auto-matched by code and/or name. Double-check each pick — especially when a
+            code repeats across sizes/colors — since confirming will deduct this quantity from that
+            product's stock. Uncheck anything you don't want applied.
           </p>
           <div className="table-wrap" style={{ maxHeight: 320, overflowY: 'auto' }}>
             <table>
@@ -236,7 +270,7 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={reset}>Choose Different File</button>
             <button type="button" className="btn btn-primary" disabled={includedRows.length === 0 || importing} onClick={confirmImport}>
-              {importing ? 'Saving…' : `Import ${includedRows.length} Item(s) as One Sale`}
+              {importing ? 'Saving…' : `Import ${includedRows.length} Item(s) and Deduct Stock`}
             </button>
           </div>
         </div>
@@ -244,7 +278,7 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
 
       {done && (
         <div>
-          <p className="qty-ok" style={{ fontWeight: 600 }}>✔ Recorded a sale with {done.count} item(s). Stock quantities were not changed.</p>
+          <p className="qty-ok" style={{ fontWeight: 600 }}>✔ Recorded a sale with {done.count} item(s) and updated stock quantities.</p>
           <div className="modal-footer">
             <button type="button" className="btn btn-primary" onClick={handleClose}>Done</button>
           </div>
