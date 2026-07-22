@@ -14,7 +14,7 @@ const links = [
 ]
 
 export default function Sidebar({ open, collapsed, onClose }) {
-  const { profile, logout } = useAuth()
+  const { profile, logout, lockNow } = useAuth()
 
   return (
     <>
@@ -46,6 +46,12 @@ export default function Sidebar({ open, collapsed, onClose }) {
               <div className="sidebar-user-role">{profile?.role}</div>
             </div>
           </div>
+          {profile?.pin && (
+            <button className="btn btn-ghost logout-btn" onClick={lockNow} title="Lock">
+              <span className="sidebar-label-text">Lock</span>
+              <span className="logout-icon">🔒</span>
+            </button>
+          )}
           <button className="btn btn-ghost logout-btn" onClick={logout} title="Logout">
             <span className="sidebar-label-text">Logout</span>
             <span className="logout-icon">⏻</span>
