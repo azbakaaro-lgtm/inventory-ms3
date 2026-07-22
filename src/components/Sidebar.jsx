@@ -20,7 +20,7 @@ export default function Sidebar({ open, collapsed, onClose }) {
     <>
       <aside className={`sidebar ${open ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
         <div className="sidebar-brand">
-          <span className="sidebar-brand-mark">IM</span>
+          <img src="/logo.png" alt="Inventory MS" className="sidebar-brand-mark" />
           <span className="sidebar-label-text sidebar-brand-text">Inventory MS</span>
         </div>
         <nav className="sidebar-nav">

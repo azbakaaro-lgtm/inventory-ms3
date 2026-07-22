@@ -52,7 +52,7 @@ body {
   gap: 10px;
   white-space: nowrap;
 }
-.sidebar-brand-mark { display: none; }
+.sidebar-brand-mark { width: 32px; height: 32px; object-fit: contain; flex-shrink: 0; display: inline-block; }
 .sidebar-nav { flex: 1; padding: 6px 10px; overflow-y: auto; overflow-x: hidden; }
 .sidebar-link {
   display: flex;
@@ -102,7 +102,8 @@ body {
   padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 5;
 }
-.topbar-title { font-weight: 700; color: var(--teal-800); }
+.topbar-title { font-weight: 700; color: var(--teal-800); display: flex; align-items: center; justify-content: center; gap: 8px; }
+.topbar-logo { width: 24px; height: 24px; object-fit: contain; }
 .page-content { padding: 22px; max-width: 1300px; margin: 0 auto; }
 .page-loading { padding: 40px; text-align: center; color: var(--text-muted); }
 

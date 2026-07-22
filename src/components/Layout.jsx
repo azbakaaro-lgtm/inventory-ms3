@@ -31,7 +31,7 @@ export default function Layout({ children }) {
       <div className="app-main">
         <header className="topbar">
           <button className="icon-btn" onClick={toggleSidebar} aria-label="Toggle sidebar">☰</button>
-          <div className="topbar-title">Inventory MS</div>
+          <div className="topbar-title"><img src="/logo.png" alt="" className="topbar-logo" /> Inventory MS</div>
           <div style={{ width: 40 }} />
         </header>
         <main className="page-content">{children}</main>
