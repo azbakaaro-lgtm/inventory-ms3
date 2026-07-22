@@ -23,6 +23,7 @@ export default function StockOut() {
   const { items: departments } = useTenantCollection('departments')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState(null)
   const [productId, setProductId] = useState('')
   const [destinationId, setDestinationId] = useState('')
   const [quantity, setQuantity] = useState('')
@@ -40,33 +41,78 @@ export default function StockOut() {
     ...departments.map((d) => ({ value: `dept:${d.id}`, label: d.name, sublabel: 'Department' })),
   ]
 
-  function resetForm() { setProductId(''); setDestinationId(''); setQuantity(''); setNote(''); setEntryDate(todayStr()) }
+  function resetForm() { setEditing(null); setProductId(''); setDestinationId(''); setQuantity(''); setNote(''); setEntryDate(todayStr()) }
+
+  function openAdd() {
+    resetForm()
+    setModalOpen(true)
+  }
+
+  function openEdit(entry) {
+    setEditing(entry)
+    setProductId(entry.productId || '')
+    setDestinationId(entry.destinationId || '')
+    setQuantity(String(entry.quantity ?? ''))
+    setNote(entry.note || '')
+    setEntryDate(entry.date?.toDate ? entry.date.toDate().toISOString().slice(0, 10) : todayStr())
+    setModalOpen(true)
+  }
 
   async function save(e) {
     e.preventDefault()
     const product = products.find((p) => p.id === productId)
     const dest = destinationOptions.find((d) => d.value === destinationId)
     if (!product || !quantity) return
-    await addDoc(collection(db, 'stockOut'), {
-      ownerId,
-      subOwnerId: firebaseUser.uid,
-      productId: product.id,
-      productCode: product.code,
-      productName: product.name,
-      unitType: product.unitType,
-      quantity: Number(quantity),
-      destinationName: dest?.label || '—',
-      note,
-      date: dateStrToTimestamp(entryDate),
-    })
-    await updateDoc(doc(db, 'products', product.id), { quantity: increment(-Number(quantity)) })
+    const newQty = Number(quantity)
+
+    if (editing) {
+      const oldQty = Number(editing.quantity || 0)
+      const oldProductId = editing.productId
+      if (oldProductId === product.id) {
+        const delta = oldQty - newQty // stock out: restoring oldQty then re-deducting newQty
+        if (delta !== 0) await updateDoc(doc(db, 'products', product.id), { quantity: increment(delta) })
+      } else {
+        // Product was changed — restore the old product's deduction, apply the new one.
+        await updateDoc(doc(db, 'products', oldProductId), { quantity: increment(oldQty) })
+        await updateDoc(doc(db, 'products', product.id), { quantity: increment(-newQty) })
+      }
+      await updateDoc(doc(db, 'stockOut', editing.id), {
+        productId: product.id,
+        productCode: product.code,
+        productName: product.name,
+        unitType: product.unitType,
+        quantity: newQty,
+        destinationId: destinationId || null,
+        destinationName: dest?.label || '—',
+        note,
+        date: dateStrToTimestamp(entryDate),
+      })
+    } else {
+      await addDoc(collection(db, 'stockOut'), {
+        ownerId,
+        subOwnerId: firebaseUser.uid,
+        productId: product.id,
+        productCode: product.code,
+        productName: product.name,
+        unitType: product.unitType,
+        quantity: newQty,
+        destinationId: destinationId || null,
+        destinationName: dest?.label || '—',
+        note,
+        date: dateStrToTimestamp(entryDate),
+      })
+      await updateDoc(doc(db, 'products', product.id), { quantity: increment(-newQty) })
+    }
     setModalOpen(false)
     resetForm()
   }
 
   async function remove(entry) {
-    if (!confirm('Delete this stock-out entry? (This will not automatically reverse the quantity.)')) return
+    if (!confirm('Delete this stock-out entry? The deducted quantity will be restored to the product\'s stock.')) return
     await deleteDoc(doc(db, 'stockOut', entry.id))
+    if (entry.productId) {
+      await updateDoc(doc(db, 'products', entry.productId), { quantity: increment(Number(entry.quantity || 0)) })
+    }
   }
 
   return (
@@ -74,7 +120,7 @@ export default function StockOut() {
       <UserScopeSelector />
       <div className="page-header">
         <h1>Stock Out</h1>
-        <button className="btn btn-gold" onClick={() => setModalOpen(true)}>+ Issue Stock</button>
+        <button className="btn btn-gold" onClick={openAdd}>+ Issue Stock</button>
       </div>
 
       <div className="card card-big-danger" style={{ marginBottom: 18, maxWidth: 320 }}>
@@ -97,14 +143,17 @@ export default function StockOut() {
                 <td>{e.productCode}</td><td>{e.productName}</td>
                 <td className="qty-low">-{e.quantity}</td>
                 <td>{e.unitType}</td><td>{e.destinationName}</td><td>{e.note || '—'}</td>
-                <td><button className="btn btn-danger btn-sm" onClick={() => remove(e)}>🗑️</button></td>
+                <td>
+                  <button className="btn btn-ghost btn-sm" onClick={() => openEdit(e)}>✏️</button>{' '}
+                  <button className="btn btn-danger btn-sm" onClick={() => remove(e)}>🗑️</button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <Modal open={modalOpen} title="Issue Stock" onClose={() => setModalOpen(false)}>
+      <Modal open={modalOpen} title={editing ? 'Edit Stock Out' : 'Issue Stock'} onClose={() => setModalOpen(false)}>
         <form onSubmit={save}>
           <div className="form-row"><label>Select Product*</label>
             <SearchSelect options={productOptions} value={productId} onChange={setProductId} placeholder="Search product name or code..." /></div>
@@ -120,7 +169,7 @@ export default function StockOut() {
             <input className="input" placeholder="Issue slip #, department request" value={note} onChange={(e) => setNote(e.target.value)} /></div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>
-            <button className="btn btn-primary">Save</button>
+            <button className="btn btn-primary">{editing ? 'Save Changes' : 'Save'}</button>
           </div>
         </form>
       </Modal>
