@@ -44,8 +44,7 @@ export default function Login() {
           </button>
         </form>
         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 16 }}>
-          First time signing in on a brand-new project? Signing in creates the admin account automatically.
-          New staff accounts are created by the admin from Settings → Users.
+          Forgot your password? Contact your administrator.
         </p>
       </div>
     </div>
