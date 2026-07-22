@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import PinGate from './PinGate'
 
 export default function ProtectedRoute({ children }) {
   const { firebaseUser, profile, loading } = useAuth()
@@ -13,5 +14,5 @@ export default function ProtectedRoute({ children }) {
       </div>
     )
   }
-  return children
+  return <PinGate>{children}</PinGate>
 }

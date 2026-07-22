@@ -11,10 +11,15 @@ setPersistence(auth, browserLocalPersistence).catch(() => {})
 
 const AuthContext = createContext(null)
 
+function pinStorageKey(uid) {
+  return `inv_ms_pin_unlocked_${uid}`
+}
+
 export function AuthProvider({ children }) {
   const [firebaseUser, setFirebaseUser] = useState(null)
-  const [profile, setProfile] = useState(null) // { role: 'admin'|'staff', ownerId, name, status }
+  const [profile, setProfile] = useState(null) // { role: 'admin'|'staff', ownerId, name, status, pin }
   const [loading, setLoading] = useState(true)
+  const [pinUnlocked, setPinUnlocked] = useState(false)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -36,8 +41,12 @@ export function AuthProvider({ children }) {
           await setDoc(doc(db, 'users', user.uid), newProfile)
           setProfile(newProfile)
         }
+        // A PIN unlock only needs to happen once per browser tab session —
+        // sessionStorage clears itself when the tab/browser is closed.
+        setPinUnlocked(sessionStorage.getItem(pinStorageKey(user.uid)) === '1')
       } else {
         setProfile(null)
+        setPinUnlocked(false)
       }
       setLoading(false)
     })
@@ -48,8 +57,25 @@ export function AuthProvider({ children }) {
 
   const login = (email, password) => signInWithEmailAndPassword(auth, email, password)
   const logout = async () => {
+    if (firebaseUser) sessionStorage.removeItem(pinStorageKey(firebaseUser.uid))
+    setPinUnlocked(false)
     await endSession()
     await signOut(auth)
+  }
+
+  async function setUserPin(newPin) {
+    if (!firebaseUser) return
+    await setDoc(doc(db, 'users', firebaseUser.uid), { pin: newPin }, { merge: true })
+    setProfile((p) => ({ ...p, pin: newPin }))
+    sessionStorage.setItem(pinStorageKey(firebaseUser.uid), '1')
+    setPinUnlocked(true)
+  }
+
+  function unlockWithPin(enteredPin) {
+    if (!profile?.pin || enteredPin !== profile.pin) return false
+    sessionStorage.setItem(pinStorageKey(firebaseUser.uid), '1')
+    setPinUnlocked(true)
+    return true
   }
 
   // The tenant/data scope this user's records belong to.
@@ -58,7 +84,7 @@ export function AuthProvider({ children }) {
   const isActive = profile?.status === 'active'
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, profile, loading, login, logout, ownerId, isAdmin, isActive }}>
+    <AuthContext.Provider value={{ firebaseUser, profile, loading, login, logout, ownerId, isAdmin, isActive, pinUnlocked, unlockWithPin, setUserPin }}>
       {children}
     </AuthContext.Provider>
   )
