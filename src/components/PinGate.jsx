@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import AuthShell from './AuthShell'
 
 function PinDots({ value }) {
   return (
@@ -67,7 +66,7 @@ function PinSetup() {
   }
 
   return (
-    <AuthShell theme="pin">
+    <div className="login-page">
       <div className="login-card">
         <div className="login-brand">Set a PIN</div>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, textAlign: 'center' }}>
@@ -81,7 +80,7 @@ function PinSetup() {
           onSubmit={step === 'create' ? handleFirstEntry : handleConfirm}
         />
       </div>
-    </AuthShell>
+    </div>
   )
 }
 
@@ -99,7 +98,7 @@ function PinUnlock() {
   }
 
   return (
-    <AuthShell theme="pin">
+    <div className="login-page">
       <div className="login-card">
         <div className="login-brand">Welcome back{profile?.name ? `, ${profile.name}` : ''}</div>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, textAlign: 'center' }}>Enter your 4-digit PIN to continue</p>
@@ -110,7 +109,7 @@ function PinUnlock() {
           Not you? Sign out
         </button>
       </div>
-    </AuthShell>
+    </div>
   )
 }
 
