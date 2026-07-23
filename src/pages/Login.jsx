@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import AuthShell from '../components/AuthShell'
 
 export default function Login() {
   const { login, firebaseUser, loading } = useAuth()
@@ -25,7 +26,7 @@ export default function Login() {
   }
 
   return (
-    <div className="login-page">
+    <AuthShell theme="login">
       <div className="login-card">
         <div className="login-brand">Inventory MS</div>
         <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Sign in to continue</p>
@@ -47,6 +48,6 @@ export default function Login() {
           Forgot your password? Contact your administrator.
         </p>
       </div>
-    </div>
+    </AuthShell>
   )
 }

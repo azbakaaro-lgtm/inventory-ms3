@@ -16,9 +16,6 @@
   --danger-bg: #fdeceb;
   --success: #1fa895;
   --radius: 12px;
-  --brand-red: #c0392b;
-  --brand-red-dark: #7b241c;
-  --brand-black: #1a1a1a;
 }
 
 * { box-sizing: border-box; }
@@ -99,7 +96,26 @@ body {
   .sidebar-collapsed .logout-icon { display: inline; }
 }
 
-.app-main { flex: 1; min-width: 0; }
+.app-main {
+  flex: 1; min-width: 0;
+  background:
+    repeating-linear-gradient(135deg, rgba(24,24,24,0.015) 0px, rgba(24,24,24,0.015) 1px, transparent 1px, transparent 26px),
+    var(--bg);
+  position: relative;
+}
+.app-main::after {
+  content: '';
+  position: fixed;
+  right: -60px; bottom: -60px;
+  width: 380px; height: 380px;
+  background-image: url('/icon.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 0;
+}
+.page-content { padding: 22px; max-width: 1300px; margin: 0 auto; position: relative; z-index: 1; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--border);
@@ -107,7 +123,6 @@ body {
 }
 .topbar-title { font-weight: 700; color: var(--teal-800); display: flex; align-items: center; justify-content: center; gap: 8px; }
 .topbar-logo { width: 24px; height: 24px; object-fit: contain; }
-.page-content { padding: 22px; max-width: 1300px; margin: 0 auto; }
 .page-loading { padding: 40px; text-align: center; color: var(--text-muted); }
 
 .icon-btn {
@@ -221,99 +236,108 @@ textarea.input { min-height: 70px; resize: vertical; }
 .progress-track { flex: 1; height: 8px; background: var(--surface-2); border-radius: 6px; overflow: hidden; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, var(--teal-500), var(--gold-500)); }
 
+/* Simple centered branded background for the app's loading/inactive states */
 .login-page {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
-  background:
-    linear-gradient(135deg, rgba(7,59,58,0.82), rgba(15,107,102,0.75)),
-    url('/bg-login.jpg') center / cover no-repeat;
+  background: linear-gradient(135deg, var(--auth-black), var(--auth-darkgray));
   padding: 20px;
+}
+
+/* ---------- Auth screens (Login / PIN) — two-panel branded layout ---------- */
+:root {
+  --auth-red: #c0392b;
+  --auth-black: #181818;
+  --auth-darkgray: #2c2c2c;
+}
+.auth-shell { min-height: 100vh; display: flex; }
+.auth-panel {
+  flex: 1.1;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  color: #f5f5f5;
+  padding: 48px;
 }
-.login-page::before {
+.auth-shell-login .auth-panel {
+  background:
+    linear-gradient(135deg, rgba(24,24,24,0.88), rgba(192,57,43,0.55)),
+    linear-gradient(160deg, var(--auth-black), var(--auth-darkgray));
+}
+.auth-shell-pin .auth-panel {
+  background: linear-gradient(135deg, #111111, #4a1010);
+}
+.auth-panel::before {
+  /* large faint watermark logo */
   content: '';
   position: absolute;
-  width: 640px; height: 640px;
+  width: 620px; height: 620px;
   background-image: url('/icon.png');
   background-size: contain;
   background-repeat: no-repeat;
-  opacity: 0.08;
-  top: -120px; right: -140px;
-  transform: rotate(-8deg);
+  opacity: 0.06;
+  bottom: -160px; right: -120px;
+  transform: rotate(6deg);
   pointer-events: none;
 }
-.login-page::after {
-  content: 'Inventory MS — Stock control, simplified';
-  position: absolute;
-  bottom: 24px; left: 0; right: 0;
-  text-align: center;
-  color: rgba(255,255,255,0.35);
-  font-size: 0.8rem;
-  letter-spacing: 0.5px;
-  pointer-events: none;
+/* Abstract floating cubes for the calmer PIN screen (drawn in pure CSS) */
+.auth-cube { position: absolute; width: 46px; height: 40px; opacity: 0.16; pointer-events: none; }
+.auth-cube::before, .auth-cube::after {
+  content: ''; position: absolute; width: 23px; height: 40px;
 }
+.auth-cube::before { left: 0; background: var(--auth-red); clip-path: polygon(0 25%, 100% 0, 100% 75%, 0 100%); }
+.auth-cube::after { right: 0; background: #000; clip-path: polygon(0 0, 100% 25%, 100% 100%, 0 75%); }
+.auth-shell-pin .auth-cube-1 { top: 14%; left: 10%; transform: scale(1.6); }
+.auth-shell-pin .auth-cube-2 { top: 65%; left: 22%; transform: scale(1.1) rotate(8deg); }
+.auth-shell-pin .auth-cube-3 { top: 30%; right: 14%; transform: scale(2.1) rotate(-6deg); }
+.auth-shell-login .auth-cube { display: none; }
 
-/* The PIN quick-unlock screen gets its own look — dark red/black, matching
-   the Inventory MS box logo — so it reads as clearly different from the
-   full email/password sign-in screen above. */
-.pinlock-page {
-  min-height: 100vh; display: flex; align-items: center; justify-content: center;
-  background:
-    linear-gradient(135deg, rgba(26,26,26,0.85), rgba(123,36,28,0.72)),
-    url('/bg-pin.jpg') center / cover no-repeat;
+.auth-panel-content { position: relative; z-index: 1; max-width: 460px; }
+.auth-panel-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 36px; }
+.auth-panel-logo { width: 44px; height: 44px; }
+.auth-panel-brand-name { font-size: 1.4rem; font-weight: 700; }
+.auth-panel-brand-name span { color: var(--auth-red); }
+.auth-panel-tagline { font-size: 0.82rem; color: rgba(245,245,245,0.65); }
+.auth-headline { font-size: 2rem; line-height: 1.25; font-weight: 700; margin: 0 0 28px; }
+.auth-headline-accent { color: var(--auth-red); }
+.auth-badge-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.auth-badge {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 10px 14px; font-size: 0.72rem; color: rgba(245,245,245,0.85);
+}
+.auth-badge-icon { font-size: 1.1rem; }
+.auth-feature-row { display: flex; gap: 18px; flex-wrap: wrap; }
+.auth-feature { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: rgba(245,245,245,0.65); }
+.auth-shell-pin .auth-panel-content > *:not(.auth-panel-brand) { opacity: 0.9; }
+
+.auth-form-side {
+  flex: 0.9;
+  min-width: 380px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--auth-black);
   padding: 20px;
-  position: relative;
-  overflow: hidden;
 }
-.pinlock-page::before {
-  content: '';
-  position: absolute;
-  width: 560px; height: 560px;
-  background-image: url('/icon.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  opacity: 0.07;
-  bottom: -140px; left: -120px;
-  transform: rotate(10deg);
-  pointer-events: none;
-}
-.pinlock-page::after {
-  content: 'Inventory MS — Stock control, simplified';
-  position: absolute;
-  bottom: 24px; left: 0; right: 0;
-  text-align: center;
-  color: rgba(255,255,255,0.35);
-  font-size: 0.8rem;
-  letter-spacing: 0.5px;
-  pointer-events: none;
-}
-.pinlock-card { border-top: 4px solid var(--brand-red); }
-
-.login-card { position: relative; z-index: 1; }
 .login-card {
   background: var(--surface); padding: 32px; border-radius: 16px; width: 100%; max-width: 380px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+  position: relative; z-index: 1;
 }
+.auth-shell-pin .login-card {
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #f5f5f5;
+}
+.auth-shell-pin .login-card input { background: rgba(255,255,255,0.9); }
 .login-brand { color: var(--gold-500); font-weight: 700; font-size: 1.4rem; margin-bottom: 4px; }
-.pinlock-page .login-brand { color: var(--brand-red); }
 .login-error { color: var(--danger); font-size: 0.85rem; margin-top: 8px; }
 
-.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
-
-/* A quiet branded touch on the Dashboard only — a large, low-opacity copy
-   of the box logo glowing softly in the corner. Kept out of every other
-   page so tables and forms stay clean and easy to read. */
-.dashboard-page { position: relative; }
-.dashboard-page::after {
-  content: '';
-  position: absolute;
-  bottom: -70px; right: -70px;
-  width: 280px; height: 280px;
-  background-image: url('/icon.png');
-  background-size: contain;
-  background-repeat: no-repeat;
-  opacity: 0.07;
-  filter: drop-shadow(0 0 30px var(--teal-600));
-  pointer-events: none;
-  z-index: 0;
+@media (max-width: 900px) {
+  .auth-shell { flex-direction: column; }
+  .auth-panel { padding: 32px; }
+  .auth-headline { font-size: 1.5rem; }
 }
+
+.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }

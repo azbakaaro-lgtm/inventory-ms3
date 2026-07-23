@@ -54,18 +54,6 @@ export const BUILT_IN_THEMES = [
       '--text-main': '#eafffb', '--text-muted': '#9fc3bd', '--border': '#283a35',
     },
   },
-  {
-    id: 'red-black',
-    name: 'Red & Black',
-    builtIn: true,
-    colors: {
-      '--teal-900': '#1a1a1a', '--teal-800': '#3d1310', '--teal-700': '#5c1c17',
-      '--teal-600': '#c0392b', '--teal-500': '#d9584a',
-      '--gold-500': '#e6b94d', '--gold-400': '#f0cd73',
-      '--bg': '#fdf6f5', '--surface': '#ffffff', '--surface-2': '#fbeceb',
-      '--text-main': '#1a1010', '--text-muted': '#7a6660', '--border': '#f0dedc',
-    },
-  },
 ]
 
 function applyThemeColors(colors) {
@@ -77,7 +65,7 @@ export function ThemeProvider({ children }) {
   const { profile } = useAuth()
   const ownerId = profile?.ownerId
   const [customThemes, setCustomThemes] = useState([])
-  const [activeThemeId, setActiveThemeId] = useState('red-black')
+  const [activeThemeId, setActiveThemeId] = useState('teal-gold')
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -87,10 +75,10 @@ export function ThemeProvider({ children }) {
       if (snap.exists()) {
         const data = snap.data()
         setCustomThemes(data.customThemes || [])
-        setActiveThemeId(data.activeThemeId || 'red-black')
+        setActiveThemeId(data.activeThemeId || 'teal-gold')
       } else {
         setCustomThemes([])
-        setActiveThemeId('red-black')
+        setActiveThemeId('teal-gold')
       }
       setLoaded(true)
     })
@@ -124,7 +112,7 @@ export function ThemeProvider({ children }) {
     const next = customThemes.filter((t) => t.id !== themeId)
     setCustomThemes(next)
     const patch = { customThemes: next }
-    if (activeThemeId === themeId) patch.activeThemeId = 'red-black'
+    if (activeThemeId === themeId) patch.activeThemeId = 'teal-gold'
     await setDoc(doc(db, 'themeSettings', ownerId), patch, { merge: true })
   }
 
