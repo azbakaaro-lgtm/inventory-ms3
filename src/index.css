@@ -299,3 +299,21 @@ textarea.input { min-height: 70px; resize: vertical; }
 .login-error { color: var(--danger); font-size: 0.85rem; margin-top: 8px; }
 
 .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+
+/* A quiet branded touch on the Dashboard only — a large, low-opacity copy
+   of the box logo glowing softly in the corner. Kept out of every other
+   page so tables and forms stay clean and easy to read. */
+.dashboard-page { position: relative; }
+.dashboard-page::after {
+  content: '';
+  position: absolute;
+  bottom: -70px; right: -70px;
+  width: 280px; height: 280px;
+  background-image: url('/icon.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.07;
+  filter: drop-shadow(0 0 30px var(--teal-600));
+  pointer-events: none;
+  z-index: 0;
+}
