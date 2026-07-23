@@ -9,8 +9,8 @@ function PinDots({ value }) {
           key={i}
           style={{
             width: 18, height: 18, borderRadius: '50%',
-            border: '2px solid var(--teal-600)',
-            background: value.length > i ? 'var(--teal-600)' : 'transparent',
+            border: '2px solid var(--brand-red)',
+            background: value.length > i ? 'var(--brand-red)' : 'transparent',
           }}
         />
       ))}
@@ -66,8 +66,8 @@ function PinSetup() {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
+    <div className="pinlock-page">
+      <div className="login-card pinlock-card">
         <div className="login-brand">Set a PIN</div>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, textAlign: 'center' }}>
           {step === 'create' ? 'Create a 4-digit PIN to quickly unlock the app next time.' : 'Enter your new PIN again to confirm.'}
@@ -98,8 +98,8 @@ function PinUnlock() {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
+    <div className="pinlock-page">
+      <div className="login-card pinlock-card">
         <div className="login-brand">Welcome back{profile?.name ? `, ${profile.name}` : ''}</div>
         <p style={{ color: 'var(--text-muted)', marginTop: 0, textAlign: 'center' }}>Enter your 4-digit PIN to continue</p>
         <PinDots value={pin} />
