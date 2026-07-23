@@ -8,7 +8,7 @@ import Modal from '../components/Modal'
 import ImportProductsModal from '../components/ImportProductsModal'
 import { exportProductsPdf } from '../utils/productPdf'
 
-const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, costPrice: 0, sellingPrice: 0, description: '' }
+const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, costPrice: 0, sellingPrice: 0, barcode: '', description: '' }
 
 export default function Products() {
   const { ownerId, firebaseUser } = useAuth()
@@ -38,7 +38,7 @@ export default function Products() {
   }
   function openEdit(p) {
     setEditing(p)
-    setForm({ code: p.code, name: p.name, category: p.category, unitType: p.unitType, quantity: p.quantity, minQuantity: p.minQuantity ?? 5, costPrice: p.costPrice ?? 0, sellingPrice: p.sellingPrice ?? 0, description: p.description || '' })
+    setForm({ code: p.code, name: p.name, category: p.category, unitType: p.unitType, quantity: p.quantity, minQuantity: p.minQuantity ?? 5, costPrice: p.costPrice ?? 0, sellingPrice: p.sellingPrice ?? 0, barcode: p.barcode || '', description: p.description || '' })
     setModalOpen(true)
   }
 
@@ -173,6 +173,8 @@ export default function Products() {
             <div className="form-row"><label>Selling Price</label>
               <input className="input" type="number" step="0.01" min="0" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} /></div>
           </div>
+          <div className="form-row"><label>Barcode (optional — scan it in POS to find this product fast)</label>
+            <input className="input" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="e.g. 6291041500213" /></div>
           <div className="form-row"><label>Description</label>
             <textarea className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
           <div className="modal-footer">

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 
 const links = [
   { to: '/', label: 'Dashboard', icon: '🏠', end: true },
+  { to: '/pos', label: 'POS', icon: '🛒' },
   { to: '/products', label: 'Products', icon: '📦' },
   { to: '/stock-in', label: 'Stock In', icon: '⬇️' },
   { to: '/stock-out', label: 'Stock Out', icon: '⬆️' },

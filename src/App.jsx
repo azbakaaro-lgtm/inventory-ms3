@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Products from './pages/Products'
+import POS from './pages/POS'
 import StockIn from './pages/StockIn'
 import StockOut from './pages/StockOut'
 import Sales from './pages/Sales'
@@ -26,6 +27,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Page><Dashboard /></Page>} />
       <Route path="/products" element={<Page><Products /></Page>} />
+      <Route path="/pos" element={<Page><POS /></Page>} />
       <Route path="/stock-in" element={<Page><StockIn /></Page>} />
       <Route path="/stock-out" element={<Page><StockOut /></Page>} />
       <Route path="/sales" element={<Page><Sales /></Page>} />
