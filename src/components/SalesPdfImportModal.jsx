@@ -159,8 +159,8 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
       const date = Timestamp.fromDate(new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds()))
 
       const items = includedRows.map((s) => {
-        const p = products.find((pp) => pp.id === s.productId)
-        return { productId: s.productId, name: p?.name, qty: Number(s.qty) }
+        const p = allProducts.find((pp) => pp.id === s.productId)
+        return { productId: s.productId, name: p?.name, qty: Number(s.qty), unitCost: Number(p?.costPrice || 0), unitPrice: Number(p?.sellingPrice || 0) }
       })
 
       await addDoc(collection(db, 'sales'), {

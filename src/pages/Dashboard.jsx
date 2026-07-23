@@ -42,7 +42,7 @@ export default function Dashboard() {
   }, [products, stockOut, sales])
 
   return (
-    <div>
+    <div className="dashboard-page">
       <UserScopeSelector />
       <div className="page-header"><h1>This Month</h1></div>
 

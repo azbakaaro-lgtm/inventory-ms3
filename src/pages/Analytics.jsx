@@ -104,7 +104,7 @@ export default function Analytics() {
               <BarChart data={movementCounts}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip />
-                <Bar dataKey="count" fill="#1fa895" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" fill="var(--teal-600)" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -114,9 +114,9 @@ export default function Analytics() {
               <LineChart data={dailyTrend}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" interval={4} /><YAxis allowDecimals={false} /><Tooltip /><Legend />
-                <Line type="monotone" dataKey="stockIn" stroke="#1fa895" name="Stock In" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="stockOut" stroke="#e6b94d" name="Stock Out" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="sales" stroke="#c0642a" name="Sales" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="stockIn" stroke="var(--teal-600)" name="Stock In" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="stockOut" stroke="var(--gold-500)" name="Stock Out" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="sales" stroke="var(--success)" name="Sales" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

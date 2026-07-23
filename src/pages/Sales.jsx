@@ -107,7 +107,7 @@ export default function Sales() {
       quantity: totalQty,
       items: validRows.map((r) => {
         const p = products.find((pp) => pp.id === r.productId)
-        return { productId: r.productId, name: p?.name, qty: Number(r.qty) }
+        return { productId: r.productId, name: p?.name, qty: Number(r.qty), unitCost: Number(p?.costPrice || 0), unitPrice: Number(p?.sellingPrice || 0) }
       }),
       notes,
       status: 'Completed',
@@ -125,7 +125,7 @@ export default function Sales() {
   async function editSaleTransaction(sale, validRows) {
     const newItems = validRows.map((r) => {
       const p = products.find((pp) => pp.id === r.productId)
-      return { productId: r.productId, name: p?.name, qty: Number(r.qty) }
+      return { productId: r.productId, name: p?.name, qty: Number(r.qty), unitCost: Number(p?.costPrice || 0), unitPrice: Number(p?.sellingPrice || 0) }
     })
     const newTotalQty = newItems.reduce((s, r) => s + r.qty, 0)
     const newCustomer = customers.find((c) => c.id === customerId)

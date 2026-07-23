@@ -6,7 +6,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 
-const TABS = ['Daily Report', 'Weekly Report', 'Monthly Report', 'Stock In Report', 'Stock Out Report', 'Sales Report', 'Fast Moving Report', 'Slow Moving Report', 'Low Stock Report']
+const TABS = ['Daily Report', 'Weekly Report', 'Monthly Report', 'Stock In Report', 'Stock Out Report', 'Sales Report', 'Profit/Loss Report', 'Fast Moving Report', 'Slow Moving Report', 'Low Stock Report']
 
 export default function Reports() {
   const { items: products } = useScopedCollection('products')
@@ -50,10 +50,55 @@ export default function Reports() {
     return rows.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
   }, [tab, stockIn, stockOut, sales, products, fast, slow, lowStock, fromDate, toDate])
 
+  // Profit/Loss: one row per sale line item, using the cost/selling price that
+  // was captured on the sale at the time it happened — not today's price —
+  // so profit for past periods stays accurate even if prices change later.
+  // Sales made before prices were tracked simply show $0 cost/profit for that line.
+  const profitLines = useMemo(() => {
+    return sales
+      .filter((s) => inRange(s.date))
+      .flatMap((s) =>
+        (s.items || []).map((it) => {
+          const p = products.find((pp) => pp.id === it.productId)
+          const qty = Number(it.qty || 0)
+          const unitCost = Number(it.unitCost || 0)
+          const unitPrice = Number(it.unitPrice || 0)
+          return {
+            date: s.date,
+            productCode: p?.code || '—',
+            productName: it.name || p?.name || '—',
+            qty, unitCost, unitPrice,
+            revenue: unitPrice * qty,
+            cost: unitCost * qty,
+            profit: (unitPrice - unitCost) * qty,
+          }
+        })
+      )
+      .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
+  }, [sales, products, fromDate, toDate])
+
+  const profitTotals = useMemo(() => profitLines.reduce(
+    (acc, r) => ({ revenue: acc.revenue + r.revenue, cost: acc.cost + r.cost, profit: acc.profit + r.profit }),
+    { revenue: 0, cost: 0, profit: 0 }
+  ), [profitLines])
+
   function exportPdf() {
     const pdf = new jsPDF()
     pdf.setFontSize(14)
     pdf.text(tab, 14, 16)
+    if (tab === 'Profit/Loss Report') {
+      autoTable(pdf, {
+        startY: 22,
+        head: [['Date', 'Code', 'Name', 'Qty', 'Cost', 'Revenue', 'Profit']],
+        body: profitLines.map((r) => [
+          r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—',
+          r.productCode, r.productName, r.qty, r.cost.toFixed(2), r.revenue.toFixed(2), r.profit.toFixed(2),
+        ]),
+        foot: [['', '', '', '', profitTotals.cost.toFixed(2), profitTotals.revenue.toFixed(2), profitTotals.profit.toFixed(2)]],
+      })
+      pdf.save('profit-loss-report.pdf')
+      return
+    }
     autoTable(pdf, {
       startY: 22,
       head: [['Date', 'Code', 'Name', 'Qty', 'Type']],
@@ -66,6 +111,18 @@ export default function Reports() {
   }
 
   function exportExcel() {
+    if (tab === 'Profit/Loss Report') {
+      const rows = profitLines.map((r) => ({
+        Date: r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—',
+        Code: r.productCode, Name: r.productName, Quantity: r.qty,
+        Cost: r.cost, Revenue: r.revenue, Profit: r.profit,
+      }))
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Profit-Loss')
+      XLSX.writeFile(wb, 'profit-loss-report.xlsx')
+      return
+    }
     const rows = combined.map((r) => ({
       Date: r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—',
       Code: r.productCode, Name: r.productName, Quantity: r.signedQty, Type: r.type,
@@ -96,22 +153,48 @@ export default function Reports() {
         <button className="btn btn-primary" onClick={() => setGenerated(true)}>Generate Report</button>
       </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead><tr><th>Date</th><th>Code</th><th>Name</th><th>Qty</th><th>Type</th></tr></thead>
-          <tbody>
-            {combined.length === 0 && <tr><td colSpan={5}><div className="empty-state">No data for this selection.</div></td></tr>}
-            {combined.map((r, i) => (
-              <tr key={i}>
-                <td>{r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—'}</td>
-                <td>{r.productCode}</td><td>{r.productName}</td>
-                <td className={r.signedQty < 0 ? 'qty-low' : 'qty-ok'}>{r.signedQty > 0 ? `+${r.signedQty}` : r.signedQty}</td>
-                <td><span className={`pill ${r.type === 'Stock Out' || r.type === 'Sale' ? 'pill-out' : 'pill-in'}`}>{r.type}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {tab === 'Profit/Loss Report' ? (
+        <>
+          <div className="cards-grid">
+            <div className="card card-accent-teal"><div className="card-label">Total Revenue</div><div className="card-value">{profitTotals.revenue.toFixed(2)}</div></div>
+            <div className="card card-accent-gold"><div className="card-label">Total Cost</div><div className="card-value">{profitTotals.cost.toFixed(2)}</div></div>
+            <div className="card card-accent-teal"><div className="card-label">Total Profit</div><div className="card-value">{profitTotals.profit.toFixed(2)}</div></div>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Code</th><th>Name</th><th>Qty</th><th>Cost</th><th>Revenue</th><th>Profit</th></tr></thead>
+              <tbody>
+                {profitLines.length === 0 && <tr><td colSpan={7}><div className="empty-state">No sales for this selection.</div></td></tr>}
+                {profitLines.map((r, i) => (
+                  <tr key={i}>
+                    <td>{r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—'}</td>
+                    <td>{r.productCode}</td><td>{r.productName}</td><td>{r.qty}</td>
+                    <td>{r.cost.toFixed(2)}</td><td>{r.revenue.toFixed(2)}</td>
+                    <td className={r.profit < 0 ? 'qty-low' : 'qty-ok'}>{r.profit.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Code</th><th>Name</th><th>Qty</th><th>Type</th></tr></thead>
+            <tbody>
+              {combined.length === 0 && <tr><td colSpan={5}><div className="empty-state">No data for this selection.</div></td></tr>}
+              {combined.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—'}</td>
+                  <td>{r.productCode}</td><td>{r.productName}</td>
+                  <td className={r.signedQty < 0 ? 'qty-low' : 'qty-ok'}>{r.signedQty > 0 ? `+${r.signedQty}` : r.signedQty}</td>
+                  <td><span className={`pill ${r.type === 'Stock Out' || r.type === 'Sale' ? 'pill-out' : 'pill-in'}`}>{r.type}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

@@ -8,7 +8,7 @@ import Modal from '../components/Modal'
 import ImportProductsModal from '../components/ImportProductsModal'
 import { exportProductsPdf } from '../utils/productPdf'
 
-const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, description: '' }
+const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, costPrice: 0, sellingPrice: 0, description: '' }
 
 export default function Products() {
   const { ownerId, firebaseUser } = useAuth()
@@ -38,13 +38,13 @@ export default function Products() {
   }
   function openEdit(p) {
     setEditing(p)
-    setForm({ code: p.code, name: p.name, category: p.category, unitType: p.unitType, quantity: p.quantity, minQuantity: p.minQuantity ?? 5, description: p.description || '' })
+    setForm({ code: p.code, name: p.name, category: p.category, unitType: p.unitType, quantity: p.quantity, minQuantity: p.minQuantity ?? 5, costPrice: p.costPrice ?? 0, sellingPrice: p.sellingPrice ?? 0, description: p.description || '' })
     setModalOpen(true)
   }
 
   async function save(e) {
     e.preventDefault()
-    const payload = { ...form, quantity: Number(form.quantity), minQuantity: Number(form.minQuantity), ownerId }
+    const payload = { ...form, quantity: Number(form.quantity), minQuantity: Number(form.minQuantity), costPrice: Number(form.costPrice || 0), sellingPrice: Number(form.sellingPrice || 0), ownerId }
     if (editing) {
       await updateDoc(doc(db, 'products', editing.id), payload)
     } else {
@@ -166,6 +166,12 @@ export default function Products() {
               <input className="input" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} /></div>
             <div className="form-row"><label>Minimum Quantity (low-stock threshold)</label>
               <input className="input" type="number" value={form.minQuantity} onChange={(e) => setForm({ ...form, minQuantity: e.target.value })} /></div>
+          </div>
+          <div className="form-grid">
+            <div className="form-row"><label>Cost Price (what you paid)</label>
+              <input className="input" type="number" step="0.01" min="0" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} /></div>
+            <div className="form-row"><label>Selling Price</label>
+              <input className="input" type="number" step="0.01" min="0" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} /></div>
           </div>
           <div className="form-row"><label>Description</label>
             <textarea className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
