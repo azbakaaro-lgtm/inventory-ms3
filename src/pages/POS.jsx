@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { addDoc, collection, doc, updateDoc, increment, Timestamp } from 'firebase/firestore'
+import { addDoc, collection, doc, updateDoc, increment, onSnapshot, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useOwnCollection } from '../hooks/useScopedCollection'
+
+const DEFAULT_PAYMENT_METHODS = [
+  { id: 'evc', name: 'EVC Plus', account: '' },
+  { id: 'salaam', name: 'Salaam Bank', account: '' },
+  { id: 'edahab', name: 'eDahab', account: '' },
+]
 
 export default function POS() {
   const { ownerId, firebaseUser } = useAuth()
@@ -19,6 +25,16 @@ export default function POS() {
   const [scanMessage, setScanMessage] = useState('')
   const [checkingOut, setCheckingOut] = useState(false)
   const [done, setDone] = useState(null)
+  const [paymentMethods, setPaymentMethods] = useState(DEFAULT_PAYMENT_METHODS)
+
+  useEffect(() => {
+    if (!ownerId) return
+    const unsub = onSnapshot(doc(db, 'posSettings', ownerId), (snap) => {
+      const data = snap.data()
+      if (data?.paymentMethods?.length) setPaymentMethods(data.paymentMethods)
+    })
+    return unsub
+  }, [ownerId])
 
   const categories = useMemo(() => ['All', ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))], [products])
 
@@ -154,6 +170,7 @@ export default function POS() {
           <div className="pos-grid">
             {filtered.map((p) => (
               <button type="button" key={p.id} className="pos-tile" onClick={() => addToCart(p.id)} disabled={!p.sellingPrice}>
+                {p.imageUrl && <img src={p.imageUrl} alt="" className="pos-tile-img" />}
                 <div className="pos-tile-name">{p.name}</div>
                 <div className="pos-tile-code">{p.code}</div>
                 <div className="pos-tile-price">{p.sellingPrice ? Number(p.sellingPrice).toFixed(2) : 'No price set'}</div>
@@ -165,34 +182,47 @@ export default function POS() {
 
         <div className="pos-cart">
           <h3>Cart</h3>
-          {cartLines.length === 0 && <div className="empty-state">Tap a product or scan a barcode to start.</div>}
-          {cartLines.map((l) => (
-            <div
-              className={`pos-cart-line ${selectedLineId === l.productId ? 'selected' : ''}`}
-              key={l.productId}
-              onClick={() => selectLine(l.productId)}
-            >
-              <div className="pos-cart-line-name">{l.product?.name || 'Unknown product'}</div>
-              <div className="pos-cart-line-controls">
-                <span>{l.qty} × {l.unitPrice.toFixed(2)}</span>
-                <span className="pos-cart-line-total">{l.lineTotal.toFixed(2)}</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); removeFromCart(l.productId) }}>✕</button>
-              </div>
-            </div>
-          ))}
 
-          {selectedLineId && (
-            <div className="pos-keypad">
-              <div className="pos-keypad-tabs">
-                <button type="button" className={`btn btn-sm ${keypadMode === 'qty' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => keypadPress('qty')}>Qty</button>
-                <button type="button" className={`btn btn-sm ${keypadMode === 'price' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => keypadPress('price')}>Price</button>
-              </div>
-              <div className="pos-keypad-grid">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'].map((k) => (
-                  <button type="button" key={k} className="btn btn-ghost pos-keypad-key" onClick={() => keypadPress(k)}>{k === 'back' ? '⌫' : k}</button>
-                ))}
-              </div>
-            </div>
+          {selectedLineId ? (
+            (() => {
+              const l = cartLines.find((x) => x.productId === selectedLineId)
+              if (!l) return null
+              return (
+                <div className="pos-cart-detail">
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedLineId(null)}>◀ Back to cart</button>
+                  <div className="pos-cart-detail-name">{l.product?.name || 'Unknown product'}</div>
+                  <div className="pos-cart-detail-line">{l.qty} × {l.unitPrice.toFixed(2)} = <strong>{l.lineTotal.toFixed(2)}</strong></div>
+
+                  <div className="pos-keypad">
+                    <div className="pos-keypad-tabs">
+                      <button type="button" className={`btn btn-sm ${keypadMode === 'qty' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => keypadPress('qty')}>Qty</button>
+                      <button type="button" className={`btn btn-sm ${keypadMode === 'price' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => keypadPress('price')}>Price</button>
+                    </div>
+                    <div className="pos-keypad-grid">
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', 'back'].map((k) => (
+                        <button type="button" key={k} className="btn btn-ghost pos-keypad-key" onClick={() => keypadPress(k)}>{k === 'back' ? '⌫' : k}</button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button type="button" className="btn btn-ghost" onClick={() => removeFromCart(l.productId)}>Remove Item</button>
+                </div>
+              )
+            })()
+          ) : (
+            <>
+              {cartLines.length === 0 && <div className="empty-state">Tap a product or scan a barcode to start.</div>}
+              {cartLines.map((l) => (
+                <div className="pos-cart-line" key={l.productId} onClick={() => selectLine(l.productId)}>
+                  <div className="pos-cart-line-name">{l.product?.name || 'Unknown product'}</div>
+                  <div className="pos-cart-line-controls">
+                    <span>{l.qty} × {l.unitPrice.toFixed(2)}</span>
+                    <span className="pos-cart-line-total">{l.lineTotal.toFixed(2)}</span>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); removeFromCart(l.productId) }}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </>
           )}
 
           <div className="pos-cart-total">
@@ -211,14 +241,14 @@ export default function POS() {
             <h3>Choose Payment Method</h3>
             <p style={{ fontSize: '1.4rem', fontWeight: 700, margin: '8px 0 16px' }}>Total: {total.toFixed(2)}</p>
             <div className="pos-payment-options">
-              {['Cash', 'Card', 'Mobile Money'].map((m) => (
+              {paymentMethods.map((m) => (
                 <button
                   type="button"
-                  key={m}
-                  className={`btn ${paymentMethod === m ? 'btn-primary' : 'btn-ghost'}`}
-                  onClick={() => setPaymentMethod(m)}
+                  key={m.id}
+                  className={`btn ${paymentMethod === m.name ? 'btn-primary' : 'btn-ghost'}`}
+                  onClick={() => setPaymentMethod(m.name)}
                 >
-                  {m}
+                  {m.name}{m.account ? ` — ${m.account}` : ''}
                 </button>
               ))}
             </div>

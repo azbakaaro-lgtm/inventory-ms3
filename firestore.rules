@@ -98,6 +98,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /posSettings/{ownerIdKey} {
+      allow read: if isSignedIn() && myOwnerId() == ownerIdKey;
+      allow create, update: if isActive() && isAdmin() && myOwnerId() == ownerIdKey;
+      allow delete: if false;
+    }
+
     // --- active sessions (one doc per signed-in device/tab) ---
     match /sessions/{sessionId} {
       // A user can read/write their own session (heartbeat, and to notice a

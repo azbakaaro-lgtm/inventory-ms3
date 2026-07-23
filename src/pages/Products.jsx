@@ -8,7 +8,32 @@ import Modal from '../components/Modal'
 import ImportProductsModal from '../components/ImportProductsModal'
 import { exportProductsPdf } from '../utils/productPdf'
 
-const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, costPrice: 0, sellingPrice: 0, barcode: '', description: '' }
+const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, costPrice: 0, sellingPrice: 0, barcode: '', imageUrl: '', description: '' }
+
+// Resizes/compresses an uploaded photo client-side and returns it as a small
+// JPEG data URL, so product photos can be stored directly on the Firestore
+// document — no Firebase Storage (and no Blaze billing plan) required.
+function resizeImageFile(file, maxSize = 300, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width * scale
+        canvas.height = img.height * scale
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', quality))
+      }
+      img.onerror = reject
+      img.src = reader.result
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 export default function Products() {
   const { ownerId, firebaseUser } = useAuth()
@@ -38,7 +63,7 @@ export default function Products() {
   }
   function openEdit(p) {
     setEditing(p)
-    setForm({ code: p.code, name: p.name, category: p.category, unitType: p.unitType, quantity: p.quantity, minQuantity: p.minQuantity ?? 5, costPrice: p.costPrice ?? 0, sellingPrice: p.sellingPrice ?? 0, barcode: p.barcode || '', description: p.description || '' })
+    setForm({ code: p.code, name: p.name, category: p.category, unitType: p.unitType, quantity: p.quantity, minQuantity: p.minQuantity ?? 5, costPrice: p.costPrice ?? 0, sellingPrice: p.sellingPrice ?? 0, barcode: p.barcode || '', imageUrl: p.imageUrl || '', description: p.description || '' })
     setModalOpen(true)
   }
 
@@ -175,6 +200,24 @@ export default function Products() {
           </div>
           <div className="form-row"><label>Barcode (optional — scan it in POS to find this product fast)</label>
             <input className="input" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} placeholder="e.g. 6291041500213" /></div>
+          <div className="form-row">
+            <label>Product Photo (optional — shown on the POS tile)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {form.imageUrl && <img src={form.imageUrl} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />}
+              <input
+                className="input"
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const dataUrl = await resizeImageFile(file)
+                  setForm((f) => ({ ...f, imageUrl: dataUrl }))
+                }}
+              />
+              {form.imageUrl && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm((f) => ({ ...f, imageUrl: '' }))}>Remove</button>}
+            </div>
+          </div>
           <div className="form-row"><label>Description</label>
             <textarea className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
           <div className="modal-footer">
