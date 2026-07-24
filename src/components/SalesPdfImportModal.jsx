@@ -182,7 +182,7 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
 
       setDone({ count: includedRows.length })
     } catch (err) {
-      setError('Could not save the imported sale. Please try again.')
+      setError(`Could not save the imported sale: ${err.message || 'unknown error'}`)
     } finally {
       setImporting(false)
     }
