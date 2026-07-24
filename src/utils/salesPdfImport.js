@@ -35,7 +35,7 @@ async function extractLines(pdf) {
     items.forEach((it) => {
       if (currentY === null || Math.abs(it.y - currentY) <= Y_TOLERANCE) {
         current.push(it)
-        currentY = currentY === null ? it.y : currentY
+        currentY = it.y // compare against the most recent item, not the cluster's first one
       } else {
         if (current.length) lines.push(current.sort((a, b) => a.x - b.x).map((p) => p.str).join(' ').replace(/\s+/g, ' ').trim())
         current = [it]
@@ -44,7 +44,23 @@ async function extractLines(pdf) {
     })
     if (current.length) lines.push(current.sort((a, b) => a.x - b.x).map((p) => p.str).join(' ').replace(/\s+/g, ' ').trim())
   }
-  return lines.filter(Boolean)
+  // Safety net: if two or more rows still ended up merged into one long line
+  // (e.g. a PDF with unusually tight/irregular line spacing), split it back
+  // apart by finding each repeated "[CODE] ... qty $amount" segment.
+  const MERGED_ROW = /\[+[^\]]+\]+[^[]*?[\d,]+\.?\d*\s+\$?[\d,]+\.\d{2}/g
+  const splitLines = []
+  lines.forEach((line) => {
+    const codeCount = (line.match(/\[+[^\]]+\]+/g) || []).length
+    if (codeCount > 1) {
+      const parts = line.match(MERGED_ROW)
+      if (parts && parts.length > 1) {
+        parts.forEach((p) => splitLines.push(p.trim()))
+        return
+      }
+    }
+    splitLines.push(line)
+  })
+  return splitLines.filter(Boolean)
 }
 
 // Core parser shared by both the PDF-extracted lines and the manual
