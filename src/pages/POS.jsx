@@ -3,6 +3,7 @@ import { addDoc, collection, doc, updateDoc, increment, onSnapshot, Timestamp } 
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useOwnCollection } from '../hooks/useScopedCollection'
+import { generateReceiptPdf } from '../utils/receiptPdf'
 
 const DEFAULT_PAYMENT_METHODS = [
   { id: 'evc', name: 'EVC Plus', account: '' },
@@ -122,6 +123,11 @@ export default function POS() {
     setCheckingOut(true)
     try {
       const reference = `POS-${Date.now().toString().slice(-6)}`
+      const saleDate = Timestamp.now()
+      const items = cartLines.map((l) => ({
+        productId: l.productId, name: l.product?.name, qty: l.qty,
+        unitCost: Number(l.product?.costPrice || 0), unitPrice: l.unitPrice,
+      }))
       await addDoc(collection(db, 'sales'), {
         ownerId,
         subOwnerId: firebaseUser.uid,
@@ -130,18 +136,15 @@ export default function POS() {
         customerName: 'Walk-in Customer',
         quantity: totalQty,
         paymentMethod: method,
-        items: cartLines.map((l) => ({
-          productId: l.productId, name: l.product?.name, qty: l.qty,
-          unitCost: Number(l.product?.costPrice || 0), unitPrice: l.unitPrice,
-        })),
+        items,
         notes: 'Completed via POS',
         status: 'Completed',
-        date: Timestamp.now(),
+        date: saleDate,
       })
       for (const l of cartLines) {
         await updateDoc(doc(db, 'products', l.productId), { quantity: increment(-l.qty) })
       }
-      setDone({ reference, total, count: cartLines.length, method })
+      setDone({ reference, total, count: cartLines.length, method, items, date: saleDate, customerName: 'Walk-in Customer' })
       setCart([])
       setSelectedLineId(null)
       setPayingOpen(false)
@@ -273,6 +276,7 @@ export default function POS() {
       {done && (
         <div className="pos-toast">
           ✔ Sale {done.reference} saved — {done.count} item(s), total {done.total.toFixed(2)} ({done.method}).
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => generateReceiptPdf(done)}>🖨️ Print Receipt</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDone(null)}>Dismiss</button>
         </div>
       )}

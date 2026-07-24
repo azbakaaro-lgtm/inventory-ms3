@@ -8,6 +8,7 @@ import UserScopeSelector from '../components/UserScopeSelector'
 import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
 import SalesPdfImportModal from '../components/SalesPdfImportModal'
+import { generateReceiptPdf } from '../utils/receiptPdf'
 
 const emptyRows = () => [{ productId: '', qty: 1 }]
 const todayStr = () => new Date().toISOString().slice(0, 10)
@@ -282,6 +283,7 @@ export default function Sales() {
             </div>
             {viewingSale.notes && <p style={{ marginTop: 10 }}><strong>Notes:</strong> {viewingSale.notes}</p>}
             <div className="modal-footer">
+              <button type="button" className="btn btn-ghost" onClick={() => generateReceiptPdf(viewingSale)}>🖨️ Print Receipt</button>
               <button type="button" className="btn btn-primary" onClick={() => setViewingSale(null)}>Close</button>
             </div>
           </div>
