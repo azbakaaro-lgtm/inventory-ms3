@@ -61,10 +61,14 @@ export function generateReceiptPdf(sale, { storeName = 'Inventory MS' } = {}) {
 
   doc.setFontSize(9)
   doc.setTextColor(90, 90, 90)
-  doc.text(`Customer: ${sale.customerName || 'Walk-in Customer'}`, 20, finalY)
-  finalY += 12
+  if (sale.customerName && sale.customerName !== 'Walk-in Customer') {
+    doc.text(`Customer: ${sale.customerName}`, 20, finalY)
+    finalY += 12
+  }
   if (sale.paymentMethod) {
-    doc.text(`Payment: ${sale.paymentMethod}`, 20, finalY)
+    doc.setFont(undefined, 'bold')
+    doc.text(`Paid via: ${sale.paymentMethod}`, 20, finalY)
+    doc.setFont(undefined, 'normal')
     finalY += 12
   }
 

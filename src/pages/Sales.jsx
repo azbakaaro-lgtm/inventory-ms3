@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { addDoc, collection, doc, updateDoc, increment, runTransaction, Timestamp } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { addDoc, collection, doc, updateDoc, increment, runTransaction, Timestamp, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
@@ -30,6 +30,16 @@ export default function Sales() {
   const [viewingSale, setViewingSale] = useState(null)
   const [pdfImportOpen, setPdfImportOpen] = useState(false)
   const [editingSale, setEditingSale] = useState(null)
+  const [storeName, setStoreName] = useState('Inventory MS')
+
+  useEffect(() => {
+    if (!ownerId) return
+    const unsub = onSnapshot(doc(db, 'posSettings', ownerId), (snap) => {
+      const data = snap.data()
+      if (data?.storeName) setStoreName(data.storeName)
+    })
+    return unsub
+  }, [ownerId])
   const [customerId, setCustomerId] = useState('')
   const [rows, setRows] = useState(emptyRows())
   const [notes, setNotes] = useState('')
@@ -241,13 +251,14 @@ export default function Sales() {
 
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Reference</th><th>Customer</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Date</th><th>Reference</th><th>Customer</th><th>Quantity</th><th>Payment</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {!loading && filtered.length === 0 && <tr><td colSpan={6}><div className="empty-state">No data available</div></td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={7}><div className="empty-state">No data available</div></td></tr>}
             {filtered.map((s) => (
               <tr key={s.id}>
                 <td>{s.date?.toDate ? s.date.toDate().toLocaleDateString() : '—'}</td>
                 <td>{s.reference}</td><td>{s.customerName}</td><td>{s.quantity}</td>
+                <td>{s.paymentMethod || '—'}</td>
                 <td><span className="pill pill-in">{s.status}</span></td>
                 <td>
                   <button className="btn btn-ghost btn-sm" onClick={() => setViewingSale(s)}>👁️ View</button>{' '}
@@ -283,7 +294,7 @@ export default function Sales() {
             </div>
             {viewingSale.notes && <p style={{ marginTop: 10 }}><strong>Notes:</strong> {viewingSale.notes}</p>}
             <div className="modal-footer">
-              <button type="button" className="btn btn-ghost" onClick={() => generateReceiptPdf(viewingSale)}>🖨️ Print Receipt</button>
+              <button type="button" className="btn btn-ghost" onClick={() => generateReceiptPdf(viewingSale, { storeName })}>🖨️ Print Receipt</button>
               <button type="button" className="btn btn-primary" onClick={() => setViewingSale(null)}>Close</button>
             </div>
           </div>

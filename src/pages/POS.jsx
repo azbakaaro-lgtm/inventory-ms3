@@ -27,12 +27,14 @@ export default function POS() {
   const [checkingOut, setCheckingOut] = useState(false)
   const [done, setDone] = useState(null)
   const [paymentMethods, setPaymentMethods] = useState(DEFAULT_PAYMENT_METHODS)
+  const [storeName, setStoreName] = useState('Inventory MS')
 
   useEffect(() => {
     if (!ownerId) return
     const unsub = onSnapshot(doc(db, 'posSettings', ownerId), (snap) => {
       const data = snap.data()
       if (data?.paymentMethods?.length) setPaymentMethods(data.paymentMethods)
+      if (data?.storeName) setStoreName(data.storeName)
     })
     return unsub
   }, [ownerId])
@@ -276,7 +278,7 @@ export default function POS() {
       {done && (
         <div className="pos-toast">
           ✔ Sale {done.reference} saved — {done.count} item(s), total {done.total.toFixed(2)} ({done.method}).
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => generateReceiptPdf(done)}>🖨️ Print Receipt</button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => generateReceiptPdf(done, { storeName })}>🖨️ Print Receipt</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDone(null)}>Dismiss</button>
         </div>
       )}

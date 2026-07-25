@@ -80,6 +80,7 @@ const DEFAULT_PAYMENT_METHODS = [
 function PaymentMethodsSettings() {
   const { ownerId, isAdmin } = useAuth()
   const [methods, setMethods] = useState(DEFAULT_PAYMENT_METHODS)
+  const [storeName, setStoreName] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -88,6 +89,7 @@ function PaymentMethodsSettings() {
     const unsub = onSnapshot(ref, (snap) => {
       const data = snap.data()
       if (data?.paymentMethods?.length) setMethods(data.paymentMethods)
+      setStoreName(data?.storeName || '')
     })
     return unsub
   }, [ownerId])
@@ -96,6 +98,12 @@ function PaymentMethodsSettings() {
     setMethods(next)
     setSaving(true)
     await setDoc(doc(db, 'posSettings', ownerId), { paymentMethods: next }, { merge: true })
+    setSaving(false)
+  }
+
+  async function persistStoreName() {
+    setSaving(true)
+    await setDoc(doc(db, 'posSettings', ownerId), { storeName }, { merge: true })
     setSaving(false)
   }
 
@@ -111,7 +119,22 @@ function PaymentMethodsSettings() {
 
   return (
     <div className="card">
-      <h3>Payment Methods</h3>
+      <h3>Store Name</h3>
+      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+        This name appears at the top of every printed receipt instead of "Inventory MS".
+      </p>
+      <div className="form-row" style={{ maxWidth: 320 }}>
+        <input
+          className="input"
+          value={storeName}
+          disabled={!isAdmin}
+          placeholder="e.g. A2Z Sports House"
+          onChange={(e) => setStoreName(e.target.value)}
+          onBlur={persistStoreName}
+        />
+      </div>
+
+      <h3 style={{ marginTop: 24 }}>Payment Methods</h3>
       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
         These are the payment options staff see at checkout in POS. Add your store's own account/phone number for
         each one so staff know what to tell the customer.
