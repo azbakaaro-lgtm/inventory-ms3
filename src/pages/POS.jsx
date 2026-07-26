@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useOwnCollection } from '../hooks/useScopedCollection'
 import { generateReceiptPdf } from '../utils/receiptPdf'
+import { logAudit } from '../utils/auditLog'
 
 const DEFAULT_PAYMENT_METHODS = [
   { id: 'evc', name: 'EVC Plus', account: '' },
@@ -11,8 +12,21 @@ const DEFAULT_PAYMENT_METHODS = [
   { id: 'edahab', name: 'eDahab', account: '' },
 ]
 
+const PAYMENT_ICONS = {
+  evc: '📱', salaam: '🏦', edahab: '💳',
+}
+function paymentIcon(method) {
+  if (PAYMENT_ICONS[method.id]) return PAYMENT_ICONS[method.id]
+  const n = (method.name || '').toLowerCase()
+  if (n.includes('evc')) return '📱'
+  if (n.includes('bank')) return '🏦'
+  if (n.includes('dahab') || n.includes('card')) return '💳'
+  if (n.includes('cash')) return '💵'
+  return '💰'
+}
+
 export default function POS() {
-  const { ownerId, firebaseUser } = useAuth()
+  const { ownerId, firebaseUser, profile } = useAuth()
   const { items: products } = useOwnCollection('products')
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
@@ -147,6 +161,7 @@ export default function POS() {
         await updateDoc(doc(db, 'products', l.productId), { quantity: increment(-l.qty) })
       }
       setDone({ reference, total, count: cartLines.length, method, items, date: saleDate, customerName: 'Walk-in Customer' })
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'POS sale', entityType: 'sale', entityName: reference, details: `Qty ${totalQty}, total ${total.toFixed(2)}, via ${method}` })
       setCart([])
       setSelectedLineId(null)
       setPayingOpen(false)
@@ -250,10 +265,14 @@ export default function POS() {
                 <button
                   type="button"
                   key={m.id}
-                  className={`btn ${paymentMethod === m.name ? 'btn-primary' : 'btn-ghost'}`}
+                  className={`pos-payment-btn ${paymentMethod === m.name ? 'active' : ''}`}
                   onClick={() => setPaymentMethod(m.name)}
                 >
-                  {m.name}{m.account ? ` — ${m.account}` : ''}
+                  <span className="pos-payment-icon">{paymentIcon(m)}</span>
+                  <span className="pos-payment-label">
+                    <span className="pos-payment-name">{m.name}</span>
+                    {m.account && <span className="pos-payment-account">{m.account}</span>}
+                  </span>
                 </button>
               ))}
             </div>

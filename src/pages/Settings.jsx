@@ -84,6 +84,8 @@ function PaymentMethodsSettings() {
   const [methods, setMethods] = useState(DEFAULT_PAYMENT_METHODS)
   const [storeName, setStoreName] = useState('')
   const [saving, setSaving] = useState(false)
+  const [savedMsg, setSavedMsg] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!ownerId) return
@@ -96,27 +98,29 @@ function PaymentMethodsSettings() {
     return unsub
   }, [ownerId])
 
-  async function persist(next) {
-    setMethods(next)
+  async function saveAll() {
     setSaving(true)
-    await setDoc(doc(db, 'posSettings', ownerId), { paymentMethods: next }, { merge: true })
-    setSaving(false)
-  }
-
-  async function persistStoreName() {
-    setSaving(true)
-    await setDoc(doc(db, 'posSettings', ownerId), { storeName }, { merge: true })
-    setSaving(false)
+    setError('')
+    setSavedMsg('')
+    try {
+      await setDoc(doc(db, 'posSettings', ownerId), { paymentMethods: methods, storeName }, { merge: true })
+      setSavedMsg('✔ Saved')
+      setTimeout(() => setSavedMsg(''), 2500)
+    } catch (err) {
+      setError(`Could not save: ${err.message || 'unknown error'}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   function updateField(id, field, value) {
-    persist(methods.map((m) => (m.id === id ? { ...m, [field]: value } : m)))
+    setMethods((prev) => prev.map((m) => (m.id === id ? { ...m, [field]: value } : m)))
   }
   function addMethod() {
-    persist([...methods, { id: `m${Date.now()}`, name: 'New Method', account: '' }])
+    setMethods((prev) => [...prev, { id: `m${Date.now()}`, name: 'New Method', account: '' }])
   }
   function removeMethod(id) {
-    persist(methods.filter((m) => m.id !== id))
+    setMethods((prev) => prev.filter((m) => m.id !== id))
   }
 
   return (
@@ -132,7 +136,6 @@ function PaymentMethodsSettings() {
           disabled={!isAdmin}
           placeholder="e.g. A2Z Sports House"
           onChange={(e) => setStoreName(e.target.value)}
-          onBlur={persistStoreName}
         />
       </div>
 
@@ -163,7 +166,12 @@ function PaymentMethodsSettings() {
         </table>
       </div>
       {isAdmin && (
-        <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} onClick={addMethod} disabled={saving}>+ Add Payment Method</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+          <button type="button" className="btn btn-ghost" onClick={addMethod} disabled={saving}>+ Add Payment Method</button>
+          <button type="button" className="btn btn-primary" onClick={saveAll} disabled={saving}>{saving ? 'Saving…' : '💾 Save Changes'}</button>
+          {savedMsg && <span className="qty-ok" style={{ fontWeight: 600 }}>{savedMsg}</span>}
+          {error && <span className="login-error" style={{ marginTop: 0 }}>{error}</span>}
+        </div>
       )}
     </div>
   )
