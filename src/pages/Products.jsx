@@ -7,6 +7,7 @@ import UserScopeSelector from '../components/UserScopeSelector'
 import Modal from '../components/Modal'
 import ImportProductsModal from '../components/ImportProductsModal'
 import { exportProductsPdf } from '../utils/productPdf'
+import { logAudit } from '../utils/auditLog'
 
 const emptyForm = { code: '', name: '', category: '', unitType: 'Piece', quantity: 0, minQuantity: 5, costPrice: 0, sellingPrice: 0, barcode: '', imageUrl: '', description: '' }
 
@@ -36,7 +37,7 @@ function resizeImageFile(file, maxSize = 300, quality = 0.7) {
 }
 
 export default function Products() {
-  const { ownerId, firebaseUser } = useAuth()
+  const { ownerId, firebaseUser, profile } = useAuth()
   const { items: products, loading } = useScopedCollection('products')
   const { items: ownProducts } = useOwnCollection('products')
   const [search, setSearch] = useState('')
@@ -72,14 +73,19 @@ export default function Products() {
     const payload = { ...form, quantity: Number(form.quantity), minQuantity: Number(form.minQuantity), costPrice: Number(form.costPrice || 0), sellingPrice: Number(form.sellingPrice || 0), ownerId }
     if (editing) {
       await updateDoc(doc(db, 'products', editing.id), payload)
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Updated product', entityType: 'product', entityName: payload.name })
     } else {
       await addDoc(collection(db, 'products'), { ...payload, ownerId, subOwnerId: firebaseUser.uid, createdAt: serverTimestamp() })
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Added product', entityType: 'product', entityName: payload.name })
     }
     setModalOpen(false)
   }
 
   async function remove(p) {
-    if (confirm(`Delete ${p.name}?`)) await deleteDoc(doc(db, 'products', p.id))
+    if (confirm(`Delete ${p.name}?`)) {
+      await deleteDoc(doc(db, 'products', p.id))
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Deleted product', entityType: 'product', entityName: p.name })
+    }
   }
 
   function toggleOne(id) {
@@ -111,6 +117,7 @@ export default function Products() {
         await batch.commit()
       }
       setSelected(new Set())
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Bulk deleted products', entityType: 'product', details: `${ids.length} product(s)` })
     } finally {
       setBulkDeleting(false)
     }

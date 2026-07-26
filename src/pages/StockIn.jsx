@@ -7,6 +7,7 @@ import { useScopedCollection, useOwnCollection } from '../hooks/useScopedCollect
 import UserScopeSelector from '../components/UserScopeSelector'
 import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
+import { logAudit } from '../utils/auditLog'
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 function dateStrToTimestamp(dateStr) {
@@ -16,7 +17,7 @@ function dateStrToTimestamp(dateStr) {
 }
 
 export default function StockIn() {
-  const { ownerId, firebaseUser } = useAuth()
+  const { ownerId, firebaseUser, profile } = useAuth()
   const { items: entries, loading } = useScopedCollection('stockIn')
   const { items: products } = useOwnCollection('products')
   const { items: branches } = useTenantCollection('branches')
@@ -83,6 +84,7 @@ export default function StockIn() {
         note,
         date: dateStrToTimestamp(entryDate),
       })
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Edited stock-in', entityType: 'stockIn', entityName: product.name, details: `Qty ${newQty}` })
     } else {
       await addDoc(collection(db, 'stockIn'), {
         ownerId,
@@ -98,6 +100,7 @@ export default function StockIn() {
         date: dateStrToTimestamp(entryDate),
       })
       await updateDoc(doc(db, 'products', product.id), { quantity: increment(newQty) })
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Added stock-in', entityType: 'stockIn', entityName: product.name, details: `Qty ${newQty}` })
     }
     setModalOpen(false)
     resetForm()
@@ -109,6 +112,7 @@ export default function StockIn() {
     if (entry.productId) {
       await updateDoc(doc(db, 'products', entry.productId), { quantity: increment(-Number(entry.quantity || 0)) })
     }
+    logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Deleted stock-in', entityType: 'stockIn', entityName: entry.productName })
   }
 
   return (

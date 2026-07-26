@@ -104,6 +104,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- audit log (append-only trail of who changed what) ---
+    match /auditLog/{id} {
+      allow read: if isAdmin() && ownedByMe(resource.data);
+      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
     // --- active sessions (one doc per signed-in device/tab) ---
     match /sessions/{sessionId} {
       // A user can read/write their own session (heartbeat, and to notice a

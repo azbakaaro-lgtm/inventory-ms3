@@ -11,8 +11,9 @@ import Sessions from './Sessions'
 import ProductCodeCleanup from './ProductCodeCleanup'
 import ChangePassword from './ChangePassword'
 import Backup from './Backup'
+import AuditLog from './AuditLog'
 
-const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Payment Methods', 'Active Sessions', 'Clean Up Variant Codes', 'Change Password', 'Backup']
+const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Payment Methods', 'Active Sessions', 'Clean Up Variant Codes', 'Change Password', 'Backup', 'Audit Log']
 
 function LanguageSettings() {
   const [language, setLanguage] = useState('English')
@@ -172,7 +173,7 @@ export default function Settings() {
   const { isAdmin } = useAuth()
   const [tab, setTab] = useState('Theme Management')
 
-  const visibleTabs = TABS.filter((t) => (t !== 'Users' && t !== 'Active Sessions' && t !== 'Clean Up Variant Codes' && t !== 'Payment Methods' && t !== 'Backup') || isAdmin)
+  const visibleTabs = TABS.filter((t) => (t !== 'Users' && t !== 'Active Sessions' && t !== 'Clean Up Variant Codes' && t !== 'Payment Methods' && t !== 'Backup' && t !== 'Audit Log') || isAdmin)
 
   return (
     <div>
@@ -191,6 +192,7 @@ export default function Settings() {
       {tab === 'Clean Up Variant Codes' && <ProductCodeCleanup />}
       {tab === 'Change Password' && <ChangePassword />}
       {tab === 'Backup' && <Backup />}
+      {tab === 'Audit Log' && <AuditLog />}
     </div>
   )
 }

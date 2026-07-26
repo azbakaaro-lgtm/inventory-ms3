@@ -4,9 +4,10 @@ import { db, createUserWithoutSigningIn } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
 import Modal from '../components/Modal'
+import { logAudit } from '../utils/auditLog'
 
 export default function Users() {
-  const { ownerId, isAdmin } = useAuth()
+  const { ownerId, isAdmin, firebaseUser, profile } = useAuth()
   const { items: users } = useTenantCollection('users')
   const [modalOpen, setModalOpen] = useState(false)
   const [name, setName] = useState('')
@@ -26,6 +27,7 @@ export default function Users() {
       await setDoc(doc(db, 'users', uid), {
         email, name, role: 'staff', ownerId, status: 'active', createdAt: serverTimestamp(),
       })
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Created staff account', entityType: 'user', entityName: name })
       setModalOpen(false)
       setName(''); setEmail(''); setPassword('')
     } catch (err) {
@@ -36,7 +38,9 @@ export default function Users() {
   }
 
   async function toggleStatus(u) {
-    await updateDoc(doc(db, 'users', u.id), { status: u.status === 'active' ? 'suspended' : 'active' })
+    const nextStatus = u.status === 'active' ? 'suspended' : 'active'
+    await updateDoc(doc(db, 'users', u.id), { status: nextStatus })
+    logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: `${nextStatus === 'active' ? 'Activated' : 'Suspended'} staff account`, entityType: 'user', entityName: u.name })
   }
 
   return (

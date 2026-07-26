@@ -9,6 +9,7 @@ import Modal from '../components/Modal'
 import SearchSelect from '../components/SearchSelect'
 import SalesPdfImportModal from '../components/SalesPdfImportModal'
 import { generateReceiptPdf } from '../utils/receiptPdf'
+import { logAudit } from '../utils/auditLog'
 
 const emptyRows = () => [{ productId: '', qty: 1 }]
 const todayStr = () => new Date().toISOString().slice(0, 10)
@@ -21,7 +22,7 @@ function dateStrToTimestamp(dateStr) {
 }
 
 export default function Sales() {
-  const { ownerId, firebaseUser, isAdmin } = useAuth()
+  const { ownerId, firebaseUser, isAdmin, profile } = useAuth()
   const { items: sales, loading } = useScopedCollection('sales')
   const { items: ownProducts } = useOwnCollection('products') // product picker for a NEW sale
   const { items: customers } = useTenantCollection('customers')
@@ -131,6 +132,7 @@ export default function Sales() {
     if (customer) {
       await updateDoc(doc(db, 'customers', customer.id), { totalPurchases: increment(totalQty) })
     }
+    logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Created sale', entityType: 'sale', entityName: reference, details: `Qty ${totalQty}` })
   }
 
   async function editSaleTransaction(sale, validRows) {
@@ -199,6 +201,7 @@ export default function Sales() {
         date: dateStrToTimestamp(saleDate),
       })
     })
+    logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Edited sale', entityType: 'sale', entityName: sale.reference })
   }
 
   async function removeSale(sale) {
@@ -232,6 +235,7 @@ export default function Sales() {
       }
       tx.delete(saleRef)
     })
+    logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Deleted sale', entityType: 'sale', entityName: sale.reference })
   }
 
   return (
