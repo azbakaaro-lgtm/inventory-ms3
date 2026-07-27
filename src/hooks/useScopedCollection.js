@@ -11,7 +11,7 @@ import { useViewScope } from '../context/ViewScopeContext'
 // - Admins see every staff member's records combined by default, or one
 //   specific person's when they pick them from the "Viewing" selector.
 export function useScopedCollection(collectionName) {
-  const { ownerId, isAdmin, firebaseUser } = useAuth()
+  const { ownerId, canViewAll, firebaseUser } = useAuth()
   const { viewingUserId } = useViewScope()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -20,7 +20,7 @@ export function useScopedCollection(collectionName) {
     if (!ownerId) return
     setLoading(true)
     const constraints = [where('ownerId', '==', ownerId)]
-    if (!isAdmin) {
+    if (!canViewAll) {
       constraints.push(where('subOwnerId', '==', firebaseUser.uid))
     } else if (viewingUserId) {
       constraints.push(where('subOwnerId', '==', viewingUserId))
@@ -31,7 +31,7 @@ export function useScopedCollection(collectionName) {
       setLoading(false)
     })
     return unsub
-  }, [collectionName, ownerId, isAdmin, firebaseUser?.uid, viewingUserId])
+  }, [collectionName, ownerId, canViewAll, firebaseUser?.uid, viewingUserId])
 
   return { items, loading }
 }

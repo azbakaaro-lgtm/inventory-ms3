@@ -13,6 +13,7 @@ export default function Users() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState('staff')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -25,16 +26,21 @@ export default function Users() {
     try {
       const uid = await createUserWithoutSigningIn(email, password)
       await setDoc(doc(db, 'users', uid), {
-        email, name, role: 'staff', ownerId, status: 'active', createdAt: serverTimestamp(),
+        email, name, role, ownerId, status: 'active', createdAt: serverTimestamp(),
       })
-      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Created staff account', entityType: 'user', entityName: name })
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: `Created ${role} account`, entityType: 'user', entityName: name })
       setModalOpen(false)
-      setName(''); setEmail(''); setPassword('')
+      setName(''); setEmail(''); setPassword(''); setRole('staff')
     } catch (err) {
       setError(err.message?.includes('email-already') ? 'That email is already registered.' : 'Could not create the account.')
     } finally {
       setBusy(false)
     }
+  }
+
+  async function changeRole(u, newRole) {
+    await updateDoc(doc(db, 'users', u.id), { role: newRole })
+    logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: `Changed role to ${newRole}`, entityType: 'user', entityName: u.name })
   }
 
   async function toggleStatus(u) {
@@ -61,7 +67,13 @@ export default function Users() {
             )}
             {users.filter((u) => u.role !== 'admin').map((u) => (
               <tr key={u.id}>
-                <td>{u.name}</td><td>{u.email}</td><td>{u.role}</td>
+                <td>{u.name}</td><td>{u.email}</td>
+                <td>
+                  <select className="input" value={u.role} onChange={(e) => changeRole(u, e.target.value)}>
+                    <option value="staff">Staff</option>
+                    <option value="accountant">Accountant (sees all branches)</option>
+                  </select>
+                </td>
                 <td><span className={`pill ${u.status === 'active' ? 'pill-in' : 'pill-out'}`}>{u.status}</span></td>
                 <td><button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(u)}>
                   {u.status === 'active' ? 'Suspend' : 'Activate'}
@@ -80,6 +92,12 @@ export default function Users() {
             <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div className="form-row"><label>Temporary Password</label>
             <input className="input" type="text" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+          <div className="form-row"><label>Role</label>
+            <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="staff">Staff (sees only their own data)</option>
+              <option value="accountant">Accountant (sees all branches, read-only oversight)</option>
+            </select>
+          </div>
           {error && <div className="login-error">{error}</div>}
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>

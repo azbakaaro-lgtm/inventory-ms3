@@ -15,6 +15,12 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && myProfile().role == 'admin';
     }
+    // Accountant: a read-only oversight role that can see every staff
+    // member's data across all branches, like an admin, but cannot manage
+    // staff accounts or store settings.
+    function isAccountant() {
+      return isSignedIn() && myProfile().role == 'accountant';
+    }
     function myOwnerId() {
       return myProfile().ownerId;
     }
@@ -29,7 +35,13 @@ service cloud.firestore {
     function isMySubData(data) {
       return isSignedIn() && data.subOwnerId == request.auth.uid;
     }
-    function canSeeSubData(data) {
+    // Read access: admin, accountant (oversight), or the record's own creator.
+    function canReadSubData(data) {
+      return ownedByMe(data) && (isAdmin() || isAccountant() || isMySubData(data));
+    }
+    // Write access: admin or the record's own creator — accountant is
+    // read-only and never modifies another branch's data.
+    function canWriteSubData(data) {
       return ownedByMe(data) && (isAdmin() || isMySubData(data));
     }
 
@@ -53,25 +65,25 @@ service cloud.firestore {
     // Each of these requires request.resource.data.subOwnerId == caller's own
     // uid on create, so a record is always stamped with its true creator.
     match /products/{id} {
-      allow read: if resource == null || canSeeSubData(resource.data);
-      allow update, delete: if canSeeSubData(resource.data);
+      allow read: if resource == null || canReadSubData(resource.data);
+      allow update, delete: if canWriteSubData(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
     }
     match /stockIn/{id} {
-      allow read: if resource == null || canSeeSubData(resource.data);
-      allow update, delete: if canSeeSubData(resource.data);
+      allow read: if resource == null || canReadSubData(resource.data);
+      allow update, delete: if canWriteSubData(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
     }
     match /stockOut/{id} {
-      allow read: if resource == null || canSeeSubData(resource.data);
-      allow update, delete: if canSeeSubData(resource.data);
+      allow read: if resource == null || canReadSubData(resource.data);
+      allow update, delete: if canWriteSubData(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
     }
     match /sales/{id} {
-      allow read: if resource == null || canSeeSubData(resource.data);
+      allow read: if resource == null || canReadSubData(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
       // An admin, or the staff member who created the sale, can edit or delete it.
-      allow update, delete: if canSeeSubData(resource.data);
+      allow update, delete: if canWriteSubData(resource.data);
     }
 
     // --- tenant-shared data (same for everyone on the team) ---

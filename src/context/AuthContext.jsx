@@ -121,10 +121,15 @@ export function AuthProvider({ children }) {
   // The tenant/data scope this user's records belong to.
   const ownerId = profile?.ownerId
   const isAdmin = profile?.role === 'admin'
+  const isAccountant = profile?.role === 'accountant'
+  // Admin and Accountant both see every staff member's data combined (or a
+  // specific person's, via the "Viewing" selector) — Accountant just can't
+  // manage staff/settings the way an admin can.
+  const canViewAll = isAdmin || isAccountant
   const isActive = profile?.status === 'active'
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, profile, loading, login, logout, ownerId, isAdmin, isActive, pinUnlocked, unlockWithPin, setUserPin, lockNow }}>
+    <AuthContext.Provider value={{ firebaseUser, profile, loading, login, logout, ownerId, isAdmin, isAccountant, canViewAll, isActive, pinUnlocked, unlockWithPin, setUserPin, lockNow }}>
       {children}
     </AuthContext.Provider>
   )

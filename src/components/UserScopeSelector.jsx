@@ -7,11 +7,11 @@ import { useTenantCollection } from '../hooks/useTenantCollection'
 // Stock In, Stock Out, Sales, Dashboard, Reports, Analytics). Renders
 // nothing for staff accounts — their view is always locked to themselves.
 export default function UserScopeSelector() {
-  const { isAdmin, firebaseUser } = useAuth()
+  const { canViewAll, firebaseUser } = useAuth()
   const { viewingUserId, setViewingUserId } = useViewScope()
   const { items: users } = useTenantCollection('users')
 
-  if (!isAdmin) return null
+  if (!canViewAll) return null
 
   const sorted = [...users].sort((a, b) => (a.role === 'admin' ? -1 : 1) - (b.role === 'admin' ? -1 : 1))
 
