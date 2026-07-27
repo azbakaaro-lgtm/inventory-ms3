@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAppLogo } from '../hooks/useAppLogo'
 
 const links = [
   { to: '/', label: 'Dashboard', icon: '🏠', end: true },
@@ -16,12 +17,13 @@ const links = [
 
 export default function Sidebar({ open, collapsed, onClose }) {
   const { profile, logout, lockNow } = useAuth()
+  const logo = useAppLogo()
 
   return (
     <>
       <aside className={`sidebar ${open ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
         <div className="sidebar-brand">
-          <img src="/icon.png" alt="Inventory MS" className="sidebar-brand-mark" />
+          <img src={logo} alt="Inventory MS" className="sidebar-brand-mark" />
           <span className="sidebar-label-text sidebar-brand-text">Inventory MS</span>
         </div>
         <nav className="sidebar-nav">

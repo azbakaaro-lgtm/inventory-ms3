@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar from './Sidebar'
+import { useAppLogo } from '../hooks/useAppLogo'
 
 function getInitialCollapsed() {
   try {
@@ -12,6 +13,13 @@ function getInitialCollapsed() {
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(getInitialCollapsed)
+  const logo = useAppLogo()
+
+  // Keep the browser tab icon in sync with the store's custom logo too.
+  useEffect(() => {
+    const link = document.querySelector('link[rel="icon"]')
+    if (link) link.href = logo
+  }, [logo])
 
   function toggleSidebar() {
     if (typeof window !== 'undefined' && window.innerWidth <= 900) {
@@ -31,7 +39,7 @@ export default function Layout({ children }) {
       <div className="app-main">
         <header className="topbar">
           <button className="icon-btn" onClick={toggleSidebar} aria-label="Toggle sidebar">☰</button>
-          <div className="topbar-title"><img src="/icon.png" alt="" className="topbar-logo" /> Inventory MS</div>
+          <div className="topbar-title"><img src={logo} alt="" className="topbar-logo" /> Inventory MS</div>
           <div style={{ width: 40 }} />
         </header>
         <main className="page-content">{children}</main>

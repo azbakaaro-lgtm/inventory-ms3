@@ -268,7 +268,9 @@ export default function POS() {
                   className={`pos-payment-btn ${paymentMethod === m.name ? 'active' : ''}`}
                   onClick={() => setPaymentMethod(m.name)}
                 >
-                  <span className="pos-payment-icon">{paymentIcon(m)}</span>
+                  <span className="pos-payment-icon">
+                    {m.iconData ? <img src={m.iconData} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '50%' }} /> : paymentIcon(m)}
+                  </span>
                   <span className="pos-payment-label">
                     <span className="pos-payment-name">{m.name}</span>
                     {m.account && <span className="pos-payment-account">{m.account}</span>}

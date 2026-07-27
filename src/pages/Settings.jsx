@@ -12,6 +12,7 @@ import ProductCodeCleanup from './ProductCodeCleanup'
 import ChangePassword from './ChangePassword'
 import Backup from './Backup'
 import AuditLog from './AuditLog'
+import { fileToResizedDataUrl } from '../utils/imageUpload'
 
 const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Payment Methods', 'Active Sessions', 'Clean Up Variant Codes', 'Change Password', 'Backup', 'Audit Log']
 
@@ -83,6 +84,7 @@ function PaymentMethodsSettings() {
   const { ownerId, isAdmin } = useAuth()
   const [methods, setMethods] = useState(DEFAULT_PAYMENT_METHODS)
   const [storeName, setStoreName] = useState('')
+  const [appLogo, setAppLogo] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
   const [error, setError] = useState('')
@@ -94,6 +96,7 @@ function PaymentMethodsSettings() {
       const data = snap.data()
       if (data?.paymentMethods?.length) setMethods(data.paymentMethods)
       setStoreName(data?.storeName || '')
+      setAppLogo(data?.appLogo || '')
     })
     return unsub
   }, [ownerId])
@@ -103,13 +106,35 @@ function PaymentMethodsSettings() {
     setError('')
     setSavedMsg('')
     try {
-      await setDoc(doc(db, 'posSettings', ownerId), { paymentMethods: methods, storeName }, { merge: true })
+      await setDoc(doc(db, 'posSettings', ownerId), { paymentMethods: methods, storeName, appLogo }, { merge: true })
       setSavedMsg('✔ Saved')
       setTimeout(() => setSavedMsg(''), 2500)
     } catch (err) {
       setError(`Could not save: ${err.message || 'unknown error'}`)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleLogoUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const dataUrl = await fileToResizedDataUrl(file, 256)
+      setAppLogo(dataUrl)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function handleMethodIconUpload(id, e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const dataUrl = await fileToResizedDataUrl(file, 96)
+      updateField(id, 'iconData', dataUrl)
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -125,7 +150,21 @@ function PaymentMethodsSettings() {
 
   return (
     <div className="card">
-      <h3>Store Name</h3>
+      <h3>App Logo</h3>
+      <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+        Replace the cube logo shown in the sidebar and browser tab with your own. Best as a square image.
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <img src={appLogo || '/icon.png'} alt="Logo preview" style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10, border: '1px solid var(--border)' }} />
+        {isAdmin && (
+          <div>
+            <input type="file" accept="image/*" onChange={handleLogoUpload} />
+            {appLogo && <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => setAppLogo('')}>Reset to default</button>}
+          </div>
+        )}
+      </div>
+
+      <h3 style={{ marginTop: 24 }}>Store Name</h3>
       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
         This name appears at the top of every printed receipt instead of "Inventory MS".
       </p>
@@ -141,16 +180,24 @@ function PaymentMethodsSettings() {
 
       <h3 style={{ marginTop: 24 }}>Payment Methods</h3>
       <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-        These are the payment options staff see at checkout in POS. Add your store's own account/phone number for
-        each one so staff know what to tell the customer.
+        These are the payment options staff see at checkout in POS. Add your store's own account/phone number,
+        and optionally upload each one's real logo, so staff know what to tell the customer.
       </p>
       {!isAdmin && <p style={{ fontStyle: 'italic' }}>Only an admin can change these.</p>}
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Method Name</th><th>Account / Phone Number</th>{isAdmin && <th></th>}</tr></thead>
+          <thead><tr><th>Icon</th><th>Method Name</th><th>Account / Phone Number</th>{isAdmin && <th></th>}</tr></thead>
           <tbody>
             {methods.map((m) => (
               <tr key={m.id}>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {m.iconData
+                      ? <img src={m.iconData} alt="" style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: '50%' }} />
+                      : <span style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>💰</span>}
+                    {isAdmin && <input type="file" accept="image/*" style={{ width: 90 }} onChange={(e) => handleMethodIconUpload(m.id, e)} />}
+                  </div>
+                </td>
                 <td>
                   <input className="input" value={m.name} disabled={!isAdmin} onChange={(e) => updateField(m.id, 'name', e.target.value)} />
                 </td>
