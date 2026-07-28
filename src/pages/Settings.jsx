@@ -12,9 +12,10 @@ import ProductCodeCleanup from './ProductCodeCleanup'
 import ChangePassword from './ChangePassword'
 import Backup from './Backup'
 import AuditLog from './AuditLog'
+import LegacyBranchDataFix from '../components/LegacyBranchDataFix'
 import { fileToResizedDataUrl } from '../utils/imageUpload'
 
-const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Payment Methods', 'Active Sessions', 'Clean Up Variant Codes', 'Change Password', 'Backup', 'Audit Log']
+const TABS = ['Theme Management', 'Language', 'Low Stock Settings', 'Item Lookup', 'Branches & Departments', 'Users', 'Payment Methods', 'Active Sessions', 'Clean Up Variant Codes', 'Change Password', 'Backup', 'Audit Log', 'Fix Legacy Branch Data']
 
 function LanguageSettings() {
   const [language, setLanguage] = useState('English')
@@ -230,7 +231,7 @@ export default function Settings() {
 
   const visibleTabs = TABS.filter((t) => {
     if (t === 'Users') return isAdmin || isManager
-    if (t === 'Active Sessions' || t === 'Clean Up Variant Codes' || t === 'Payment Methods' || t === 'Backup' || t === 'Audit Log') return isAdmin
+    if (t === 'Active Sessions' || t === 'Clean Up Variant Codes' || t === 'Payment Methods' || t === 'Backup' || t === 'Audit Log' || t === 'Fix Legacy Branch Data') return isAdmin
     return true
   })
 
@@ -252,6 +253,7 @@ export default function Settings() {
       {tab === 'Change Password' && <ChangePassword />}
       {tab === 'Backup' && <Backup />}
       {tab === 'Audit Log' && <AuditLog />}
+      {tab === 'Fix Legacy Branch Data' && <LegacyBranchDataFix />}
     </div>
   )
 }
