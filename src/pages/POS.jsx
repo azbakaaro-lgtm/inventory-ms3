@@ -26,7 +26,7 @@ function paymentIcon(method) {
 }
 
 export default function POS() {
-  const { ownerId, firebaseUser, profile } = useAuth()
+  const { ownerId, firebaseUser, profile, branchOwnerId } = useAuth()
   const { items: products } = useOwnCollection('products')
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
@@ -147,6 +147,7 @@ export default function POS() {
       await addDoc(collection(db, 'sales'), {
         ownerId,
         subOwnerId: firebaseUser.uid,
+        branchOwnerId,
         reference,
         customerId: null,
         customerName: 'Walk-in Customer',

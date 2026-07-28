@@ -22,7 +22,7 @@ function dateStrToTimestamp(dateStr) {
 }
 
 export default function Sales() {
-  const { ownerId, firebaseUser, isAdmin, profile } = useAuth()
+  const { ownerId, firebaseUser, isAdmin, isManager, branchOwnerId, profile } = useAuth()
   const { items: sales, loading } = useScopedCollection('sales')
   const { items: ownProducts } = useOwnCollection('products') // product picker for a NEW sale
   const { items: customers } = useTenantCollection('customers')
@@ -81,7 +81,7 @@ export default function Sales() {
   }
 
   function canManage(sale) {
-    return isAdmin || sale.subOwnerId === firebaseUser?.uid
+    return isAdmin || sale.subOwnerId === firebaseUser?.uid || (isManager && sale.branchOwnerId === firebaseUser?.uid)
   }
 
   async function completeSale(e) {
@@ -113,6 +113,7 @@ export default function Sales() {
     await addDoc(collection(db, 'sales'), {
       ownerId,
       subOwnerId: firebaseUser.uid,
+      branchOwnerId,
       reference,
       customerId: customerId || null,
       customerName: customer?.name || 'Walk-in Customer',
@@ -342,6 +343,7 @@ export default function Sales() {
         onClose={() => setPdfImportOpen(false)}
         ownerId={ownerId}
         subOwnerId={firebaseUser?.uid}
+        branchOwnerId={branchOwnerId}
         products={ownProducts}
       />
     </div>

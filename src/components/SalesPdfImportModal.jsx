@@ -83,7 +83,7 @@ function RowPicker({ row, products, selection, onChange }) {
   )
 }
 
-export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId, products }) {
+export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId, branchOwnerId, products }) {
   const [fileName, setFileName] = useState('')
   const [parsing, setParsing] = useState(false)
   const [parsed, setParsed] = useState(null) // { reportDate, withCode, noCode }
@@ -166,6 +166,7 @@ export default function SalesPdfImportModal({ open, onClose, ownerId, subOwnerId
       await addDoc(collection(db, 'sales'), {
         ownerId,
         subOwnerId,
+        branchOwnerId,
         reference: `IMPORT-${Date.now().toString().slice(-6)}`,
         customerId: null,
         customerName: 'Walk-in Customer',

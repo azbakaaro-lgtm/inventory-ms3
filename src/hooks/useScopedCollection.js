@@ -11,7 +11,7 @@ import { useViewScope } from '../context/ViewScopeContext'
 // - Admins see every staff member's records combined by default, or one
 //   specific person's when they pick them from the "Viewing" selector.
 export function useScopedCollection(collectionName) {
-  const { ownerId, canViewAll, firebaseUser } = useAuth()
+  const { ownerId, canViewAll, isManager, managerId, firebaseUser } = useAuth()
   const { viewingUserId } = useViewScope()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -20,10 +20,15 @@ export function useScopedCollection(collectionName) {
     if (!ownerId) return
     setLoading(true)
     const constraints = [where('ownerId', '==', ownerId)]
-    if (!canViewAll) {
+    if (canViewAll) {
+      if (viewingUserId) constraints.push(where('subOwnerId', '==', viewingUserId))
+    } else if (isManager) {
+      // A branch manager sees their own records plus every sub-user they created.
+      constraints.push(where('branchOwnerId', '==', firebaseUser.uid))
+    } else {
+      // A sub-user only ever sees their own records — not their manager's,
+      // and not any sibling sub-user's.
       constraints.push(where('subOwnerId', '==', firebaseUser.uid))
-    } else if (viewingUserId) {
-      constraints.push(where('subOwnerId', '==', viewingUserId))
     }
     const q = query(collection(db, collectionName), ...constraints)
     const unsub = onSnapshot(q, (snap) => {
@@ -31,7 +36,7 @@ export function useScopedCollection(collectionName) {
       setLoading(false)
     })
     return unsub
-  }, [collectionName, ownerId, canViewAll, firebaseUser?.uid, viewingUserId])
+  }, [collectionName, ownerId, canViewAll, isManager, managerId, firebaseUser?.uid, viewingUserId])
 
   return { items, loading }
 }
@@ -58,28 +63,29 @@ export function useProductsForSubOwner(subOwnerId) {
   return items
 }
 
-// Always the CURRENT user's own records, regardless of what an admin is
-// "viewing" elsewhere — used for product pickers in Sales/Stock In/Stock Out
-// forms, since creating a record always acts on the creator's own sub-store.
+// The CURRENT user's own working set of records for creating something new
+// (product pickers in Sales/Stock In/Stock Out/POS forms) — regardless of
+// what an admin elsewhere is "viewing":
+// - A sub-user only ever works with their own records.
+// - A manager (or admin/accountant using their own account) works with
+//   their whole branch's records — their own plus every sub-user they created.
 export function useOwnCollection(collectionName) {
-  const { ownerId, firebaseUser } = useAuth()
+  const { ownerId, firebaseUser, managerId, branchOwnerId } = useAuth()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!ownerId || !firebaseUser) return
     setLoading(true)
-    const q = query(
-      collection(db, collectionName),
-      where('ownerId', '==', ownerId),
-      where('subOwnerId', '==', firebaseUser.uid)
-    )
+    const q = managerId
+      ? query(collection(db, collectionName), where('ownerId', '==', ownerId), where('subOwnerId', '==', firebaseUser.uid))
+      : query(collection(db, collectionName), where('ownerId', '==', ownerId), where('branchOwnerId', '==', branchOwnerId))
     const unsub = onSnapshot(q, (snap) => {
       setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setLoading(false)
     })
     return unsub
-  }, [collectionName, ownerId, firebaseUser?.uid])
+  }, [collectionName, ownerId, firebaseUser?.uid, managerId, branchOwnerId])
 
   return { items, loading }
 }

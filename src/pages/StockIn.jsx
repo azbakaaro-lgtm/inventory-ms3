@@ -17,7 +17,7 @@ function dateStrToTimestamp(dateStr) {
 }
 
 export default function StockIn() {
-  const { ownerId, firebaseUser, profile } = useAuth()
+  const { ownerId, firebaseUser, profile, branchOwnerId } = useAuth()
   const { items: entries, loading } = useScopedCollection('stockIn')
   const { items: products } = useOwnCollection('products')
   const { items: branches } = useTenantCollection('branches')
@@ -89,6 +89,7 @@ export default function StockIn() {
       await addDoc(collection(db, 'stockIn'), {
         ownerId,
         subOwnerId: firebaseUser.uid,
+        branchOwnerId,
         productId: product.id,
         productCode: product.code,
         productName: product.name,

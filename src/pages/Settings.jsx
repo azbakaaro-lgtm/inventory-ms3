@@ -225,10 +225,14 @@ function PaymentMethodsSettings() {
 }
 
 export default function Settings() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isManager } = useAuth()
   const [tab, setTab] = useState('Theme Management')
 
-  const visibleTabs = TABS.filter((t) => (t !== 'Users' && t !== 'Active Sessions' && t !== 'Clean Up Variant Codes' && t !== 'Payment Methods' && t !== 'Backup' && t !== 'Audit Log') || isAdmin)
+  const visibleTabs = TABS.filter((t) => {
+    if (t === 'Users') return isAdmin || isManager
+    if (t === 'Active Sessions' || t === 'Clean Up Variant Codes' || t === 'Payment Methods' || t === 'Backup' || t === 'Audit Log') return isAdmin
+    return true
+  })
 
   return (
     <div>

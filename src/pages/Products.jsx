@@ -37,7 +37,7 @@ function resizeImageFile(file, maxSize = 300, quality = 0.7) {
 }
 
 export default function Products() {
-  const { ownerId, firebaseUser, profile } = useAuth()
+  const { ownerId, firebaseUser, profile, branchOwnerId } = useAuth()
   const { items: products, loading } = useScopedCollection('products')
   const { items: ownProducts } = useOwnCollection('products')
   const [search, setSearch] = useState('')
@@ -75,7 +75,7 @@ export default function Products() {
       await updateDoc(doc(db, 'products', editing.id), payload)
       logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Updated product', entityType: 'product', entityName: payload.name })
     } else {
-      await addDoc(collection(db, 'products'), { ...payload, ownerId, subOwnerId: firebaseUser.uid, createdAt: serverTimestamp() })
+      await addDoc(collection(db, 'products'), { ...payload, ownerId, subOwnerId: firebaseUser.uid, branchOwnerId, createdAt: serverTimestamp() })
       logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'Added product', entityType: 'product', entityName: payload.name })
     }
     setModalOpen(false)
@@ -239,6 +239,7 @@ export default function Products() {
         onClose={() => setImportOpen(false)}
         ownerId={ownerId}
         subOwnerId={firebaseUser?.uid}
+        branchOwnerId={branchOwnerId}
         existingProducts={ownProducts}
       />
     </div>

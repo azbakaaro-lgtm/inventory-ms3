@@ -21,6 +21,16 @@ service cloud.firestore {
     function isAccountant() {
       return isSignedIn() && myProfile().role == 'accountant';
     }
+    // Manager: an active staff member who is not themself someone else's
+    // sub-user — they "own" a branch and can create/see their own sub-users.
+    function isManagerRole() {
+      return isSignedIn() && myProfile().role == 'staff' && myProfile().get('managerId', null) == null;
+    }
+    // The id that groups "this person's whole branch" together: a manager's
+    // own uid, or a sub-user's manager's uid.
+    function myBranchOwnerId() {
+      return myProfile().get('managerId', null) != null ? myProfile().managerId : request.auth.uid;
+    }
     function myOwnerId() {
       return myProfile().ownerId;
     }
@@ -35,26 +45,42 @@ service cloud.firestore {
     function isMySubData(data) {
       return isSignedIn() && data.subOwnerId == request.auth.uid;
     }
-    // Read access: admin, accountant (oversight), or the record's own creator.
-    function canReadSubData(data) {
-      return ownedByMe(data) && (isAdmin() || isAccountant() || isMySubData(data));
+    // True if this record belongs to the caller's own branch — this only
+    // ever broadens access for the manager who OWNS the branch (their own
+    // records plus every sub-user they created). A sub-user never gets this:
+    // it must stay scoped to isMySubData only, or siblings could see each
+    // other's data.
+    function isMyBranchData(data) {
+      return isManagerRole() && data.get('branchOwnerId', null) == request.auth.uid;
     }
-    // Write access: admin or the record's own creator — accountant is
-    // read-only and never modifies another branch's data.
+    // Read access: admin, accountant (oversight), the record's own creator,
+    // or (for a manager) anyone in their branch.
+    function canReadSubData(data) {
+      return ownedByMe(data) && (isAdmin() || isAccountant() || isMySubData(data) || isMyBranchData(data));
+    }
+    // Write access: admin, the record's own creator, or (for a manager)
+    // anyone in their branch — accountant is read-only and never modifies
+    // another branch's data.
     function canWriteSubData(data) {
-      return ownedByMe(data) && (isAdmin() || isMySubData(data));
+      return ownedByMe(data) && (isAdmin() || isMySubData(data) || isMyBranchData(data));
     }
 
     // --- users ---
     // Anyone signed in can read/bootstrap their own profile.
-    // An active admin can read/manage the staff profiles they created (same ownerId).
+    // An active admin can create/manage any staff profile in their store.
+    // A branch manager can create/manage only the sub-users they created.
     match /users/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || ownedByMe(resource.data));
       allow create: if isSignedIn() && (
         request.auth.uid == uid ||
-        (isAdmin() && request.resource.data.ownerId == myOwnerId())
+        (isAdmin() && request.resource.data.ownerId == myOwnerId()) ||
+        (isManagerRole() && request.resource.data.ownerId == myOwnerId() && request.resource.data.managerId == request.auth.uid)
       );
-      allow update: if isSignedIn() && (request.auth.uid == uid || (isAdmin() && ownedByMe(resource.data)));
+      allow update: if isSignedIn() && (
+        request.auth.uid == uid ||
+        (isAdmin() && ownedByMe(resource.data)) ||
+        (isManagerRole() && ownedByMe(resource.data) && resource.data.managerId == request.auth.uid)
+      );
       allow delete: if false;
     }
 
@@ -67,21 +93,21 @@ service cloud.firestore {
     match /products/{id} {
       allow read: if resource == null || canReadSubData(resource.data);
       allow update, delete: if canWriteSubData(resource.data);
-      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
+      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid && request.resource.data.branchOwnerId == myBranchOwnerId();
     }
     match /stockIn/{id} {
       allow read: if resource == null || canReadSubData(resource.data);
       allow update, delete: if canWriteSubData(resource.data);
-      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
+      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid && request.resource.data.branchOwnerId == myBranchOwnerId();
     }
     match /stockOut/{id} {
       allow read: if resource == null || canReadSubData(resource.data);
       allow update, delete: if canWriteSubData(resource.data);
-      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
+      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid && request.resource.data.branchOwnerId == myBranchOwnerId();
     }
     match /sales/{id} {
       allow read: if resource == null || canReadSubData(resource.data);
-      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid;
+      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.subOwnerId == request.auth.uid && request.resource.data.branchOwnerId == myBranchOwnerId();
       // An admin, or the staff member who created the sale, can edit or delete it.
       allow update, delete: if canWriteSubData(resource.data);
     }

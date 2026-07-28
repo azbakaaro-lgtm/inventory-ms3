@@ -126,10 +126,19 @@ export function AuthProvider({ children }) {
   // specific person's, via the "Viewing" selector) — Accountant just can't
   // manage staff/settings the way an admin can.
   const canViewAll = isAdmin || isAccountant
+  // If this user was created by a branch manager (not the top-level admin),
+  // managerId points at that manager — their data stays private to just
+  // themself and their manager, never their manager's other sub-users.
+  const managerId = profile?.managerId || null
+  const isManager = !isAdmin && !isAccountant && !managerId
+  // The id that groups "this person's whole branch" together: a manager's
+  // own uid (covering themself + everyone they created), or a sub-user's
+  // manager's uid.
+  const branchOwnerId = managerId || firebaseUser?.uid || null
   const isActive = profile?.status === 'active'
 
   return (
-    <AuthContext.Provider value={{ firebaseUser, profile, loading, login, logout, ownerId, isAdmin, isAccountant, canViewAll, isActive, pinUnlocked, unlockWithPin, setUserPin, lockNow }}>
+    <AuthContext.Provider value={{ firebaseUser, profile, loading, login, logout, ownerId, isAdmin, isAccountant, canViewAll, managerId, isManager, branchOwnerId, isActive, pinUnlocked, unlockWithPin, setUserPin, lockNow }}>
       {children}
     </AuthContext.Provider>
   )

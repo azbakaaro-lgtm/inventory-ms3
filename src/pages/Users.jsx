@@ -7,8 +7,8 @@ import Modal from '../components/Modal'
 import { logAudit } from '../utils/auditLog'
 
 export default function Users() {
-  const { ownerId, isAdmin, firebaseUser, profile } = useAuth()
-  const { items: users } = useTenantCollection('users')
+  const { ownerId, isAdmin, isManager, firebaseUser, profile } = useAuth()
+  const { items: allUsers } = useTenantCollection('users')
   const [modalOpen, setModalOpen] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -17,7 +17,12 @@ export default function Users() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  if (!isAdmin) return <div className="empty-state">Only admins can manage users.</div>
+  if (!isAdmin && !isManager) {
+    return <div className="empty-state">Only admins and branch managers can manage users.</div>
+  }
+
+  // A manager only sees and creates their OWN sub-users; an admin sees everyone.
+  const users = isAdmin ? allUsers.filter((u) => u.role !== 'admin') : allUsers.filter((u) => u.managerId === firebaseUser.uid)
 
   async function addUser(e) {
     e.preventDefault()
@@ -25,10 +30,13 @@ export default function Users() {
     setBusy(true)
     try {
       const uid = await createUserWithoutSigningIn(email, password)
+      const newRole = isAdmin ? role : 'staff' // a manager can only create ordinary sub-users
       await setDoc(doc(db, 'users', uid), {
-        email, name, role, ownerId, status: 'active', createdAt: serverTimestamp(),
+        email, name, role: newRole, ownerId, status: 'active',
+        managerId: isAdmin ? null : firebaseUser.uid,
+        createdAt: serverTimestamp(),
       })
-      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: `Created ${role} account`, entityType: 'user', entityName: name })
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: `Created ${newRole} account`, entityType: 'user', entityName: name })
       setModalOpen(false)
       setName(''); setEmail(''); setPassword(''); setRole('staff')
     } catch (err) {
@@ -52,27 +60,33 @@ export default function Users() {
   return (
     <div>
       <div className="page-header">
-        <h2>Staff Accounts</h2>
+        <h2>{isAdmin ? 'Staff Accounts' : 'My Branch — Users'}</h2>
         <button className="btn btn-gold btn-sm" onClick={() => setModalOpen(true)}>+ Add User</button>
       </div>
       <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-        Only accounts you create here can sign in and see this store's data. Anyone else who signs up won't have access.
+        {isAdmin
+          ? "Only accounts you create here can sign in and see this store's data. Anyone else who signs up won't have access."
+          : 'Users you add here work under your branch — their data stays private to just them and you; you can see and manage all of it.'}
       </p>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody>
-            {users.filter((u) => u.role !== 'admin').length === 0 && (
-              <tr><td colSpan={5}><div className="empty-state">No staff accounts yet.</div></td></tr>
+            {users.length === 0 && (
+              <tr><td colSpan={5}><div className="empty-state">No accounts yet.</div></td></tr>
             )}
-            {users.filter((u) => u.role !== 'admin').map((u) => (
+            {users.map((u) => (
               <tr key={u.id}>
                 <td>{u.name}</td><td>{u.email}</td>
                 <td>
-                  <select className="input" value={u.role} onChange={(e) => changeRole(u, e.target.value)}>
-                    <option value="staff">Staff</option>
-                    <option value="accountant">Accountant (sees all branches)</option>
-                  </select>
+                  {isAdmin ? (
+                    <select className="input" value={u.role} onChange={(e) => changeRole(u, e.target.value)}>
+                      <option value="staff">Staff</option>
+                      <option value="accountant">Accountant (sees all branches)</option>
+                    </select>
+                  ) : (
+                    u.role
+                  )}
                 </td>
                 <td><span className={`pill ${u.status === 'active' ? 'pill-in' : 'pill-out'}`}>{u.status}</span></td>
                 <td><button className="btn btn-ghost btn-sm" onClick={() => toggleStatus(u)}>
@@ -84,7 +98,7 @@ export default function Users() {
         </table>
       </div>
 
-      <Modal open={modalOpen} title="Add Staff User" onClose={() => setModalOpen(false)}>
+      <Modal open={modalOpen} title="Add User" onClose={() => setModalOpen(false)}>
         <form onSubmit={addUser}>
           <div className="form-row"><label>Name</label>
             <input className="input" required value={name} onChange={(e) => setName(e.target.value)} /></div>
@@ -92,12 +106,14 @@ export default function Users() {
             <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
           <div className="form-row"><label>Temporary Password</label>
             <input className="input" type="text" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-          <div className="form-row"><label>Role</label>
-            <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="staff">Staff (sees only their own data)</option>
-              <option value="accountant">Accountant (sees all branches, read-only oversight)</option>
-            </select>
-          </div>
+          {isAdmin && (
+            <div className="form-row"><label>Role</label>
+              <select className="input" value={role} onChange={(e) => setRole(e.target.value)}>
+                <option value="staff">Staff (sees only their own data)</option>
+                <option value="accountant">Accountant (sees all branches, read-only oversight)</option>
+              </select>
+            </div>
+          )}
           {error && <div className="login-error">{error}</div>}
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>
