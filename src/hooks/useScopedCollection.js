@@ -19,12 +19,36 @@ export function useScopedCollection(collectionName) {
   useEffect(() => {
     if (!ownerId) return
     setLoading(true)
+
+    if (isManager && !canViewAll) {
+      // A branch manager sees their own records (matched by subOwnerId —
+      // this always works, even for records created before branchOwnerId
+      // existed) PLUS every sub-user's records (matched by branchOwnerId).
+      // Two listeners merged client-side, since Firestore can't OR across
+      // two different fields without a manually-created composite index.
+      const ownQ = query(collection(db, collectionName), where('ownerId', '==', ownerId), where('subOwnerId', '==', firebaseUser.uid))
+      const branchQ = query(collection(db, collectionName), where('ownerId', '==', ownerId), where('branchOwnerId', '==', firebaseUser.uid))
+      let ownDocs = new Map()
+      let branchDocs = new Map()
+      const merge = () => {
+        const combined = new Map([...ownDocs, ...branchDocs])
+        setItems([...combined.values()])
+        setLoading(false)
+      }
+      const unsub1 = onSnapshot(ownQ, (snap) => {
+        ownDocs = new Map(snap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]))
+        merge()
+      })
+      const unsub2 = onSnapshot(branchQ, (snap) => {
+        branchDocs = new Map(snap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]))
+        merge()
+      })
+      return () => { unsub1(); unsub2() }
+    }
+
     const constraints = [where('ownerId', '==', ownerId)]
     if (canViewAll) {
       if (viewingUserId) constraints.push(where('subOwnerId', '==', viewingUserId))
-    } else if (isManager) {
-      // A branch manager sees their own records plus every sub-user they created.
-      constraints.push(where('branchOwnerId', '==', firebaseUser.uid))
     } else {
       // A sub-user only ever sees their own records — not their manager's,
       // and not any sibling sub-user's.
@@ -77,14 +101,39 @@ export function useOwnCollection(collectionName) {
   useEffect(() => {
     if (!ownerId || !firebaseUser) return
     setLoading(true)
-    const q = managerId
-      ? query(collection(db, collectionName), where('ownerId', '==', ownerId), where('subOwnerId', '==', firebaseUser.uid))
-      : query(collection(db, collectionName), where('ownerId', '==', ownerId), where('branchOwnerId', '==', branchOwnerId))
-    const unsub = onSnapshot(q, (snap) => {
-      setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+
+    if (managerId) {
+      // A sub-user only ever works with their own records.
+      const q = query(collection(db, collectionName), where('ownerId', '==', ownerId), where('subOwnerId', '==', firebaseUser.uid))
+      const unsub = onSnapshot(q, (snap) => {
+        setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        setLoading(false)
+      })
+      return unsub
+    }
+
+    // A manager (or admin/accountant using their own account) works with
+    // their whole branch — their own records (matched by subOwnerId, which
+    // always works even for records older than branchOwnerId) plus every
+    // sub-user's records (matched by branchOwnerId). Merged client-side.
+    const ownQ = query(collection(db, collectionName), where('ownerId', '==', ownerId), where('subOwnerId', '==', firebaseUser.uid))
+    const branchQ = query(collection(db, collectionName), where('ownerId', '==', ownerId), where('branchOwnerId', '==', branchOwnerId))
+    let ownDocs = new Map()
+    let branchDocs = new Map()
+    const merge = () => {
+      const combined = new Map([...ownDocs, ...branchDocs])
+      setItems([...combined.values()])
       setLoading(false)
+    }
+    const unsub1 = onSnapshot(ownQ, (snap) => {
+      ownDocs = new Map(snap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]))
+      merge()
     })
-    return unsub
+    const unsub2 = onSnapshot(branchQ, (snap) => {
+      branchDocs = new Map(snap.docs.map((d) => [d.id, { id: d.id, ...d.data() }]))
+      merge()
+    })
+    return () => { unsub1(); unsub2() }
   }, [collectionName, ownerId, firebaseUser?.uid, managerId, branchOwnerId])
 
   return { items, loading }
