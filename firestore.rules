@@ -58,11 +58,13 @@ service cloud.firestore {
     function canReadSubData(data) {
       return ownedByMe(data) && (isAdmin() || isAccountant() || isMySubData(data) || isMyBranchData(data));
     }
-    // Write access: admin, the record's own creator, or (for a manager)
-    // anyone in their branch — accountant is read-only and never modifies
-    // another branch's data.
+    // Write access: the record's own creator, or (for a manager) anyone in
+    // their branch. Admin deliberately does NOT get blanket write access
+    // here anymore — admin can see everything (canReadSubData, above) but
+    // can only create/edit/delete their own records, never a manager's or
+    // sub-user's products/stock/sales.
     function canWriteSubData(data) {
-      return ownedByMe(data) && (isAdmin() || isMySubData(data) || isMyBranchData(data));
+      return ownedByMe(data) && (isMySubData(data) || isMyBranchData(data));
     }
 
     // --- users ---
