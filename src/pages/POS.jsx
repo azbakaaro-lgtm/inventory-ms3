@@ -26,7 +26,7 @@ function paymentIcon(method) {
 }
 
 export default function POS() {
-  const { ownerId, firebaseUser, profile, branchOwnerId } = useAuth()
+  const { ownerId, firebaseUser, profile, branchOwnerId, canViewAll } = useAuth()
   const { items: products } = useOwnCollection('products')
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')

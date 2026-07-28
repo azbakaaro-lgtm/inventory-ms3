@@ -22,7 +22,7 @@ function dateStrToTimestamp(dateStr) {
 }
 
 export default function Sales() {
-  const { ownerId, firebaseUser, isAdmin, isManager, branchOwnerId, profile } = useAuth()
+  const { ownerId, firebaseUser, isAdmin, isManager, branchOwnerId, profile, canViewAll } = useAuth()
   const { items: sales, loading } = useScopedCollection('sales')
   const { items: ownProducts } = useOwnCollection('products') // product picker for a NEW sale
   const { items: customers } = useTenantCollection('customers')
