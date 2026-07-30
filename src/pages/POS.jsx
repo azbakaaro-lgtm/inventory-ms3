@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useOwnCollection } from '../hooks/useScopedCollection'
 import { generateReceiptPdf } from '../utils/receiptPdf'
 import { logAudit } from '../utils/auditLog'
+import CloseDailyModal from '../components/CloseDailyModal'
 
 const DEFAULT_PAYMENT_METHODS = [
   { id: 'evc', name: 'EVC Plus', account: '' },
@@ -28,6 +29,8 @@ function paymentIcon(method) {
 export default function POS() {
   const { ownerId, firebaseUser, profile, branchOwnerId } = useAuth()
   const { items: products } = useOwnCollection('products')
+  const { items: sales } = useOwnCollection('sales')
+  const [closeDailyOpen, setCloseDailyOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [cart, setCart] = useState([]) // [{ productId, qty, priceOverride? }]
@@ -176,7 +179,10 @@ export default function POS() {
 
   return (
     <div className="pos-page">
-      <div className="page-header"><h1>Point of Sale</h1></div>
+      <div className="page-header">
+        <h1>Point of Sale</h1>
+        <button className="btn btn-ghost" onClick={() => setCloseDailyOpen(true)}>📋 Close Daily</button>
+      </div>
 
       <div className="pos-layout">
         <div className="pos-catalog">
@@ -304,6 +310,14 @@ export default function POS() {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDone(null)}>Dismiss</button>
         </div>
       )}
+
+      <CloseDailyModal
+        open={closeDailyOpen}
+        onClose={() => setCloseDailyOpen(false)}
+        sales={sales}
+        storeName={storeName}
+        closedBy={profile?.name}
+      />
     </div>
   )
 }
