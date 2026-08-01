@@ -188,16 +188,26 @@ export default function POS() {
         <div className="pos-catalog">
           <div className="pos-toolbar">
             <input className="input" placeholder="Search by name, code, or barcode…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
             <button type="button" className="btn btn-primary" onClick={() => { setScanMessage(''); setScannerOpen(true) }}>📷 Scan Barcode</button>
+          </div>
+
+          <div className="pos-category-row">
+            {categories.map((c, i) => (
+              <button
+                type="button"
+                key={c}
+                className={`pos-category-pill pos-cat-${i % 6} ${category === c ? 'active' : ''}`}
+                onClick={() => setCategory(c)}
+              >
+                {c}
+              </button>
+            ))}
           </div>
 
           <div className="pos-grid">
             {filtered.map((p) => (
               <button type="button" key={p.id} className="pos-tile" onClick={() => addToCart(p.id)} disabled={!p.sellingPrice}>
-                {p.imageUrl && <img src={p.imageUrl} alt="" className="pos-tile-img" />}
+                {p.imageUrl ? <img src={p.imageUrl} alt="" className="pos-tile-img" /> : <div className="pos-tile-img pos-tile-img-placeholder">📦</div>}
                 <div className="pos-tile-name">{p.name}</div>
                 <div className="pos-tile-code">{p.code}</div>
                 <div className="pos-tile-price">{p.sellingPrice ? Number(p.sellingPrice).toFixed(2) : 'No price set'}</div>

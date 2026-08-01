@@ -142,6 +142,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // --- POS register sessions (each "Close Daily" finalizes one) ---
+    match /posSessions/{id} {
+      allow read: if resource == null || canReadSubData(resource.data);
+      allow create: if isActive() && request.resource.data.ownerId == myOwnerId() && request.resource.data.branchOwnerId == myBranchOwnerId();
+      allow update, delete: if false;
+    }
+
     // --- audit log (append-only trail of who changed what) ---
     match /auditLog/{id} {
       allow read: if isAdmin() && ownedByMe(resource.data);
