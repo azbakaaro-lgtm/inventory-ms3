@@ -118,6 +118,11 @@ service cloud.firestore {
       allow update, delete: if ownedByMe(resource.data);
       allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
     }
+    match /customerDebts/{id} {
+      allow read: if resource == null || ownedByMe(resource.data);
+      allow update, delete: if false;
+      allow create: if isActive() && request.resource.data.ownerId == myOwnerId();
+    }
     match /branches/{id} {
       allow read: if resource == null || ownedByMe(resource.data);
       allow update, delete: if ownedByMe(resource.data);

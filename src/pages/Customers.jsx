@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
 import Modal from '../components/Modal'
+import CustomerDebtModal from '../components/CustomerDebtModal'
 
 const emptyForm = { name: '', phone: '', address: '' }
 
@@ -13,6 +14,8 @@ export default function Customers() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  const [debtCustomerId, setDebtCustomerId] = useState(null)
+  const debtCustomer = customers.find((c) => c.id === debtCustomerId) || null
 
   function openAdd() { setEditing(null); setForm(emptyForm); setModalOpen(true) }
   function openEdit(c) { setEditing(c); setForm({ name: c.name, phone: c.phone || '', address: c.address || '' }); setModalOpen(true) }
@@ -22,7 +25,7 @@ export default function Customers() {
     if (editing) {
       await updateDoc(doc(db, 'customers', editing.id), form)
     } else {
-      await addDoc(collection(db, 'customers'), { ...form, ownerId, totalPurchases: 0, createdAt: serverTimestamp() })
+      await addDoc(collection(db, 'customers'), { ...form, ownerId, totalPurchases: 0, debtBalance: 0, createdAt: serverTimestamp() })
     }
     setModalOpen(false)
   }
@@ -38,13 +41,18 @@ export default function Customers() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Contact</th><th>Total Purchases</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Total Purchases</th><th>Debt Owed</th><th>Actions</th></tr></thead>
           <tbody>
-            {!loading && customers.length === 0 && <tr><td colSpan={4}><div className="empty-state">No customers yet.</div></td></tr>}
+            {!loading && customers.length === 0 && <tr><td colSpan={6}><div className="empty-state">No customers yet.</div></td></tr>}
             {customers.map((c) => (
               <tr key={c.id}>
-                <td>{c.name}</td><td>{c.phone || c.address || '—'}</td><td>{c.totalPurchases || 0}</td>
+                <td>{c.name}</td>
+                <td>{c.phone || '—'}</td>
+                <td>{c.address || '—'}</td>
+                <td>{c.totalPurchases || 0}</td>
+                <td className={Number(c.debtBalance) > 0 ? 'qty-low' : 'qty-ok'}>{Number(c.debtBalance || 0).toFixed(2)}</td>
                 <td>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setDebtCustomerId(c.id)}>💰 Debt</button>{' '}
                   <button className="btn btn-ghost btn-sm" onClick={() => openEdit(c)}>✏️</button>{' '}
                   <button className="btn btn-danger btn-sm" onClick={() => remove(c)}>🗑️</button>
                 </td>
@@ -58,16 +66,18 @@ export default function Customers() {
         <form onSubmit={save}>
           <div className="form-row"><label>Customer Name*</label>
             <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-          <div className="form-row"><label>Phone (optional)</label>
-            <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-          <div className="form-row"><label>Address (optional)</label>
-            <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
+          <div className="form-row"><label>Phone Number</label>
+            <input className="input" placeholder="e.g. 61XXXXXXX" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+          <div className="form-row"><label>Address</label>
+            <input className="input" placeholder="e.g. Bakaaro, Mogadishu" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>
             <button className="btn btn-primary">Save</button>
           </div>
         </form>
       </Modal>
+
+      <CustomerDebtModal open={!!debtCustomer} onClose={() => setDebtCustomerId(null)} customer={debtCustomer} />
     </div>
   )
 }
