@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { addDoc, collection, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { useEffect, useState } from 'react'
+import { addDoc, collection, deleteDoc, doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useTenantCollection } from '../hooks/useTenantCollection'
+import { useOwnCollection } from '../hooks/useScopedCollection'
 import Modal from '../components/Modal'
 import CustomerDebtModal from '../components/CustomerDebtModal'
 
@@ -11,6 +12,17 @@ const emptyForm = { name: '', phone: '', address: '' }
 export default function Customers() {
   const { ownerId } = useAuth()
   const { items: customers, loading } = useTenantCollection('customers')
+  const { items: products } = useOwnCollection('products')
+  const [storeName, setStoreName] = useState('Inventory MS')
+
+  useEffect(() => {
+    if (!ownerId) return
+    const unsub = onSnapshot(doc(db, 'posSettings', ownerId), (snap) => {
+      const data = snap.data()
+      if (data?.storeName) setStoreName(data.storeName)
+    })
+    return unsub
+  }, [ownerId])
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -77,7 +89,7 @@ export default function Customers() {
         </form>
       </Modal>
 
-      <CustomerDebtModal open={!!debtCustomer} onClose={() => setDebtCustomerId(null)} customer={debtCustomer} />
+      <CustomerDebtModal open={!!debtCustomer} onClose={() => setDebtCustomerId(null)} customer={debtCustomer} products={products} storeName={storeName} />
     </div>
   )
 }
