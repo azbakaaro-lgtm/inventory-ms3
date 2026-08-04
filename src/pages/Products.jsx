@@ -52,7 +52,7 @@ export default function Products() {
   const categories = useMemo(() => ['All', ...new Set(products.map((p) => p.category).filter(Boolean))], [products])
 
   const filtered = products.filter((p) => {
-    const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.code.toLowerCase().includes(search.toLowerCase())
+    const matchesSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.code?.toLowerCase().includes(search.toLowerCase())
     const matchesCategory = category === 'All' || p.category === category
     return matchesSearch && matchesCategory
   })
@@ -164,7 +164,11 @@ export default function Products() {
             {filtered.map((p) => (
               <tr key={p.id}>
                 <td><input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} /></td>
-                <td>{p.code}</td>
+                <td>
+                  {p.code
+                    ? <>{p.code} <span className="pill pill-in" style={{ marginLeft: 6 }}>With Code</span></>
+                    : <span className="pill pill-out">No Code</span>}
+                </td>
                 <td>{p.name}</td>
                 <td>{p.category || '—'}</td>
                 <td>{p.unitType}</td>
@@ -182,8 +186,8 @@ export default function Products() {
       <Modal open={modalOpen} title={editing ? 'Edit Product' : 'Add Product'} onClose={() => setModalOpen(false)}>
         <form onSubmit={save}>
           <div className="form-grid">
-            <div className="form-row"><label>Product Code*</label>
-              <input className="input" required value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
+            <div className="form-row"><label>Product Code (optional)</label>
+              <input className="input" placeholder="Leave blank if this product has no code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
             <div className="form-row"><label>Product Name*</label>
               <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
           </div>
