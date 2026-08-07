@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { formatMoney } from '../utils/money'
 
 // Builds a customer account statement: every credit purchase (itemized —
 // product, quantity, price, line total) and every payment they've made,
@@ -26,12 +27,12 @@ export function generateCustomerDebtPdf(customer, entries, { storeName = 'Invent
   sorted.forEach((e) => {
     if (e.type === 'charge' && e.items?.length) {
       e.items.forEach((it) => {
-        rows.push([e.date?.toDate ? e.date.toDate().toLocaleDateString() : '—', it.name, String(it.qty), Number(it.unitPrice).toFixed(2), (it.qty * it.unitPrice).toFixed(2)])
+        rows.push([e.date?.toDate ? e.date.toDate().toLocaleDateString() : '—', it.name, String(it.qty), formatMoney(it.unitPrice), formatMoney(it.qty * it.unitPrice)])
       })
     } else if (e.type === 'charge') {
-      rows.push([e.date?.toDate ? e.date.toDate().toLocaleDateString() : '—', e.note || 'Credit purchase', '—', '—', Number(e.amount).toFixed(2)])
+      rows.push([e.date?.toDate ? e.date.toDate().toLocaleDateString() : '—', e.note || 'Credit purchase', '—', '—', formatMoney(e.amount)])
     } else {
-      rows.push([e.date?.toDate ? e.date.toDate().toLocaleDateString() : '—', `Payment${e.note ? ` — ${e.note}` : ''}`, '—', '—', `-${Number(e.amount).toFixed(2)}`])
+      rows.push([e.date?.toDate ? e.date.toDate().toLocaleDateString() : '—', `Payment${e.note ? ` — ${e.note}` : ''}`, '—', '—', `-${formatMoney(e.amount)}`])
     }
   })
 
@@ -50,7 +51,7 @@ export function generateCustomerDebtPdf(customer, entries, { storeName = 'Invent
   doc.setFontSize(12)
   doc.setFont(undefined, 'bold')
   doc.setTextColor(20, 20, 20)
-  doc.text(`Balance Owed: ${Number(customer.debtBalance || 0).toFixed(2)}`, pageWidth - marginX, finalY, { align: 'right' })
+  doc.text(`Balance Owed: ${formatMoney(customer.debtBalance)}`, pageWidth - marginX, finalY, { align: 'right' })
 
   doc.save(`statement-${customer.name.replace(/\s+/g, '-')}.pdf`)
 }

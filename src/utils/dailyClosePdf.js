@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { formatMoney } from '../utils/money'
 
 // Builds the end-of-day "Close Daily" report, styled after a classic POS
 // session report: a "Sales" section listing every item sold (with product
@@ -61,7 +62,7 @@ export function generateDailyClosePdf(sales, { storeName = 'Inventory MS', date 
 
   const itemRows = [...itemTotals.values()]
     .sort((a, b) => b.qty - a.qty)
-    .map((r) => [r.code ? `[${r.code}]` : '—', r.name, String(r.qty), r.total.toFixed(2)])
+    .map((r) => [r.code ? `[${r.code}]` : '—', r.name, String(r.qty), formatMoney(r.total)])
 
   autoTable(doc, {
     startY: y,
@@ -72,7 +73,7 @@ export function generateDailyClosePdf(sales, { storeName = 'Inventory MS', date 
     headStyles: { fillColor: [255, 255, 255], textColor: [90, 90, 90], fontStyle: 'bold', lineWidth: { bottom: 0.5 }, lineColor: [200, 200, 200] },
     styles: { fontSize: 9, cellPadding: 5 },
     columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } },
-    foot: [['', 'Total', String(totalQty), grandTotal.toFixed(2)]],
+    foot: [['', 'Total', String(totalQty), formatMoney(grandTotal)]],
     footStyles: { fillColor: [245, 245, 245], textColor: [30, 30, 30], fontStyle: 'bold', lineWidth: { top: 0.75 }, lineColor: [180, 180, 180] },
   })
 
@@ -85,7 +86,7 @@ export function generateDailyClosePdf(sales, { storeName = 'Inventory MS', date 
   doc.text('Payments', marginX + 8, y + 14)
   y += 30
 
-  const paymentRows = [...paymentTotals.entries()].map(([method, total]) => [method, total.toFixed(2)])
+  const paymentRows = [...paymentTotals.entries()].map(([method, total]) => [method, formatMoney(total)])
 
   autoTable(doc, {
     startY: y,
@@ -96,7 +97,7 @@ export function generateDailyClosePdf(sales, { storeName = 'Inventory MS', date 
     headStyles: { fillColor: [255, 255, 255], textColor: [90, 90, 90], fontStyle: 'bold', lineWidth: { bottom: 0.5 }, lineColor: [200, 200, 200] },
     styles: { fontSize: 10, cellPadding: 6 },
     columnStyles: { 1: { halign: 'right' } },
-    foot: [['Grand Total', grandTotal.toFixed(2)]],
+    foot: [['Grand Total', formatMoney(grandTotal)]],
     footStyles: { fillColor: [245, 245, 245], textColor: [30, 30, 30], fontStyle: 'bold', lineWidth: { top: 0.75 }, lineColor: [180, 180, 180] },
   })
 

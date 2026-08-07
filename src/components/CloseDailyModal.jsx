@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import Modal from './Modal'
 import { generateDailyClosePdf } from '../utils/dailyClosePdf'
+import { formatMoney } from '../utils/money'
 
 export default function CloseDailyModal({ open, onClose, sales, storeName, closedBy }) {
   const { ownerId, firebaseUser, branchOwnerId } = useAuth()
@@ -110,12 +111,12 @@ export default function CloseDailyModal({ open, onClose, sales, storeName, close
               <thead><tr><th>Method</th><th>Amount</th></tr></thead>
               <tbody>
                 {paymentTotals.map(([method, total]) => (
-                  <tr key={method}><td>{method}</td><td>{total.toFixed(2)}</td></tr>
+                  <tr key={method}><td>{method}</td><td>{formatMoney(total)}</td></tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p style={{ marginTop: 10, fontWeight: 700, fontSize: '1.1rem' }}>Grand Total: {grandTotal.toFixed(2)}</p>
+          <p style={{ marginTop: 10, fontWeight: 700, fontSize: '1.1rem' }}>Grand Total: {formatMoney(grandTotal)}</p>
 
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Close</button>

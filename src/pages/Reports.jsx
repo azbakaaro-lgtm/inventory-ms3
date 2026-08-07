@@ -5,6 +5,7 @@ import { classifyMovement } from '../utils/analytics'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
+import { formatMoney } from '../utils/money'
 
 const TABS = ['Daily Report', 'Weekly Report', 'Monthly Report', 'Stock In Report', 'Stock Out Report', 'Sales Report', 'Profit/Loss Report', 'Fast Moving Report', 'Slow Moving Report', 'Low Stock Report']
 
@@ -92,9 +93,9 @@ export default function Reports() {
         head: [['Date', 'Code', 'Name', 'Qty', 'Cost', 'Revenue', 'Profit']],
         body: profitLines.map((r) => [
           r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—',
-          r.productCode, r.productName, r.qty, r.cost.toFixed(2), r.revenue.toFixed(2), r.profit.toFixed(2),
+          r.productCode, r.productName, r.qty, formatMoney(r.cost), formatMoney(r.revenue), formatMoney(r.profit),
         ]),
-        foot: [['', '', '', '', profitTotals.cost.toFixed(2), profitTotals.revenue.toFixed(2), profitTotals.profit.toFixed(2)]],
+        foot: [['', '', '', '', formatMoney(profitTotals.cost), formatMoney(profitTotals.revenue), formatMoney(profitTotals.profit)]],
       })
       pdf.save('profit-loss-report.pdf')
       return
@@ -156,9 +157,9 @@ export default function Reports() {
       {tab === 'Profit/Loss Report' ? (
         <>
           <div className="cards-grid">
-            <div className="card card-accent-teal"><div className="card-label">Total Revenue</div><div className="card-value">{profitTotals.revenue.toFixed(2)}</div></div>
-            <div className="card card-accent-gold"><div className="card-label">Total Cost</div><div className="card-value">{profitTotals.cost.toFixed(2)}</div></div>
-            <div className="card card-accent-teal"><div className="card-label">Total Profit</div><div className="card-value">{profitTotals.profit.toFixed(2)}</div></div>
+            <div className="card card-accent-teal"><div className="card-label">Total Revenue</div><div className="card-value">{formatMoney(profitTotals.revenue)}</div></div>
+            <div className="card card-accent-gold"><div className="card-label">Total Cost</div><div className="card-value">{formatMoney(profitTotals.cost)}</div></div>
+            <div className="card card-accent-teal"><div className="card-label">Total Profit</div><div className="card-value">{formatMoney(profitTotals.profit)}</div></div>
           </div>
           <div className="table-wrap">
             <table>
@@ -169,8 +170,8 @@ export default function Reports() {
                   <tr key={i}>
                     <td>{r.date?.toDate ? r.date.toDate().toLocaleDateString() : '—'}</td>
                     <td>{r.productCode}</td><td>{r.productName}</td><td>{r.qty}</td>
-                    <td>{r.cost.toFixed(2)}</td><td>{r.revenue.toFixed(2)}</td>
-                    <td className={r.profit < 0 ? 'qty-low' : 'qty-ok'}>{r.profit.toFixed(2)}</td>
+                    <td>{formatMoney(r.cost)}</td><td>{formatMoney(r.revenue)}</td>
+                    <td className={r.profit < 0 ? 'qty-low' : 'qty-ok'}>{formatMoney(r.profit)}</td>
                   </tr>
                 ))}
               </tbody>

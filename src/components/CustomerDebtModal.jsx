@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import Modal from './Modal'
 import SearchSelect from './SearchSelect'
 import { generateCustomerDebtPdf } from '../utils/customerDebtPdf'
+import { formatMoney } from '../utils/money'
 
 function formatTime(ts) {
   if (!ts?.toDate) return '—'
@@ -153,7 +154,7 @@ export default function CustomerDebtModal({ open, onClose, customer, products = 
   return (
     <Modal open={open} title={`Debt — ${customer.name}`} onClose={onClose} wide>
       <p style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-        Currently owed: <span className={Number(customer.debtBalance) > 0 ? 'qty-low' : 'qty-ok'}>{Number(customer.debtBalance || 0).toFixed(2)}</span>
+        Currently owed: <span className={Number(customer.debtBalance) > 0 ? 'qty-low' : 'qty-ok'}>{formatMoney(customer.debtBalance)}</span>
       </p>
 
       <div className="form-row" style={{ maxWidth: 320 }}>
@@ -182,13 +183,13 @@ export default function CustomerDebtModal({ open, onClose, customer, products = 
                 <thead><tr><th>Product Name</th><th>Quantity</th><th>Price</th><th>Total</th></tr></thead>
                 <tbody>
                   {lineDetails.map((l, i) => (
-                    <tr key={i}><td>{l.name}</td><td>{l.qty}</td><td>{l.unitPrice.toFixed(2)}</td><td>{l.lineTotal.toFixed(2)}</td></tr>
+                    <tr key={i}><td>{l.name}</td><td>{l.qty}</td><td>{formatMoney(l.unitPrice)}</td><td>{formatMoney(l.lineTotal)}</td></tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-          <p style={{ marginTop: 8, fontWeight: 700 }}>Charge Total: {chargeTotal.toFixed(2)}</p>
+          <p style={{ marginTop: 8, fontWeight: 700 }}>Charge Total: {formatMoney(chargeTotal)}</p>
 
           <div className="form-row" style={{ marginTop: 10 }}><label>Note (optional)</label>
             <input className="input" placeholder="e.g. picked up in person" value={note} onChange={(e) => setNote(e.target.value)} /></div>
@@ -229,7 +230,7 @@ export default function CustomerDebtModal({ open, onClose, customer, products = 
                 <td>{formatTime(e.date)}</td>
                 <td><span className={`pill ${e.type === 'charge' ? 'pill-out' : 'pill-in'}`}>{e.type === 'charge' ? 'Credit Purchase' : 'Payment'}</span></td>
                 <td>{e.items?.length ? e.items.map((it) => `${it.name} x${it.qty}`).join(', ') : (e.note || '—')}</td>
-                <td>{e.type === 'charge' ? '+' : '-'}{Number(e.amount).toFixed(2)}</td>
+                <td>{e.type === 'charge' ? '+' : '-'}{formatMoney(e.amount)}</td>
               </tr>
             ))}
           </tbody>

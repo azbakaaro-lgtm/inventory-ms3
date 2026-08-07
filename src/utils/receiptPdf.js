@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { formatMoney } from '../utils/money'
 
 // Generates a simple, printable receipt/invoice PDF for one sale.
 // `sale` needs: reference, date (Timestamp or Date), customerName, items
@@ -30,7 +31,7 @@ export function generateReceiptPdf(sale, { storeName = 'Inventory MS' } = {}) {
   const rows = items.map((it) => {
     const unitPrice = Number(it.unitPrice || 0)
     const qty = Number(it.qty || 0)
-    return [it.name || '—', String(qty), unitPrice.toFixed(2), (unitPrice * qty).toFixed(2)]
+    return [it.name || '—', String(qty), formatMoney(unitPrice), formatMoney(unitPrice * qty)]
   })
 
   autoTable(doc, {
@@ -55,7 +56,7 @@ export function generateReceiptPdf(sale, { storeName = 'Inventory MS' } = {}) {
   doc.setTextColor(20, 20, 20)
   doc.setFont(undefined, 'bold')
   doc.text('Total', 20, finalY)
-  doc.text(total.toFixed(2), pageWidth - 20, finalY, { align: 'right' })
+  doc.text(formatMoney(total), pageWidth - 20, finalY, { align: 'right' })
   doc.setFont(undefined, 'normal')
   finalY += 18
 

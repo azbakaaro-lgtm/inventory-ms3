@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useOwnCollection } from '../hooks/useScopedCollection'
 import { generateReceiptPdf } from '../utils/receiptPdf'
 import { logAudit } from '../utils/auditLog'
+import { formatMoney } from '../utils/money'
 import CloseDailyModal from '../components/CloseDailyModal'
 
 const DEFAULT_PAYMENT_METHODS = [
@@ -165,7 +166,7 @@ export default function POS() {
         await updateDoc(doc(db, 'products', l.productId), { quantity: increment(-l.qty) })
       }
       setDone({ reference, total, count: cartLines.length, method, items, date: saleDate, customerName: 'Walk-in Customer' })
-      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'POS sale', entityType: 'sale', entityName: reference, details: `Qty ${totalQty}, total ${total.toFixed(2)}, via ${method}` })
+      logAudit({ ownerId, subOwnerId: firebaseUser.uid, userName: profile?.name, action: 'POS sale', entityType: 'sale', entityName: reference, details: `Qty ${totalQty}, total ${formatMoney(total)}, via ${method}` })
       setCart([])
       setSelectedLineId(null)
       setPayingOpen(false)
@@ -210,7 +211,7 @@ export default function POS() {
                 {p.imageUrl ? <img src={p.imageUrl} alt="" className="pos-tile-img" /> : <div className="pos-tile-img pos-tile-img-placeholder">📦</div>}
                 <div className="pos-tile-name">{p.name}</div>
                 <div className="pos-tile-code">{p.code}</div>
-                <div className="pos-tile-price">{p.sellingPrice ? Number(p.sellingPrice).toFixed(2) : 'No price set'}</div>
+                <div className="pos-tile-price">{p.sellingPrice ? formatMoney(p.sellingPrice) : 'No price set'}</div>
               </button>
             ))}
             {filtered.length === 0 && <div className="empty-state">No products match.</div>}
@@ -228,7 +229,7 @@ export default function POS() {
                 <div className="pos-cart-detail">
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => setSelectedLineId(null)}>◀ Back to cart</button>
                   <div className="pos-cart-detail-name">{l.product?.name || 'Unknown product'}</div>
-                  <div className="pos-cart-detail-line">{l.qty} × {l.unitPrice.toFixed(2)} = <strong>{l.lineTotal.toFixed(2)}</strong></div>
+                  <div className="pos-cart-detail-line">{l.qty} × {formatMoney(l.unitPrice)} = <strong>{formatMoney(l.lineTotal)}</strong></div>
 
                   <div className="pos-keypad">
                     <div className="pos-keypad-tabs">
@@ -253,8 +254,8 @@ export default function POS() {
                 <div className="pos-cart-line" key={l.productId} onClick={() => selectLine(l.productId)}>
                   <div className="pos-cart-line-name">{l.product?.name || 'Unknown product'}</div>
                   <div className="pos-cart-line-controls">
-                    <span>{l.qty} × {l.unitPrice.toFixed(2)}</span>
-                    <span className="pos-cart-line-total">{l.lineTotal.toFixed(2)}</span>
+                    <span>{l.qty} × {formatMoney(l.unitPrice)}</span>
+                    <span className="pos-cart-line-total">{formatMoney(l.lineTotal)}</span>
                     <button type="button" className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); removeFromCart(l.productId) }}>✕</button>
                   </div>
                 </div>
@@ -264,7 +265,7 @@ export default function POS() {
 
           <div className="pos-cart-total">
             <span>Total</span>
-            <span>{total.toFixed(2)}</span>
+            <span>{formatMoney(total)}</span>
           </div>
           <button type="button" className="btn btn-primary pos-checkout-btn" disabled={cartLines.length === 0 || checkingOut} onClick={() => setPayingOpen(true)}>
             {`Payment (${totalQty} item${totalQty === 1 ? '' : 's'})`}
@@ -276,7 +277,7 @@ export default function POS() {
         <div className="modal-backdrop" onClick={() => !checkingOut && setPayingOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 380 }}>
             <h3>Choose Payment Method</h3>
-            <p style={{ fontSize: '1.4rem', fontWeight: 700, margin: '8px 0 16px' }}>Total: {total.toFixed(2)}</p>
+            <p style={{ fontSize: '1.4rem', fontWeight: 700, margin: '8px 0 16px' }}>Total: {formatMoney(total)}</p>
             <div className="pos-payment-options">
               {paymentMethods.map((m) => (
                 <button
@@ -315,7 +316,7 @@ export default function POS() {
 
       {done && (
         <div className="pos-toast">
-          ✔ Sale {done.reference} saved — {done.count} item(s), total {done.total.toFixed(2)} ({done.method}).
+          ✔ Sale {done.reference} saved — {done.count} item(s), total {formatMoney(done.total)} ({done.method}).
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => generateReceiptPdf(done, { storeName })}>🖨️ Print Receipt</button>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setDone(null)}>Dismiss</button>
         </div>
